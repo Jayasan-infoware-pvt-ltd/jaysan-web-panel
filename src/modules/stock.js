@@ -36,8 +36,8 @@ export async function initStock(container) {
         </div>
 
         <!-- Modal Template -->
-        <div id="product-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-            <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl transform transition-all scale-100">
+        <div id="product-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] backdrop-blur-sm">
+            <div class="bg-white rounded-xl p-8 w-full max-w-md shadow-2xl transform transition-all scale-100 ring-1 ring-black/5">
                 <h3 id="modal-title" class="text-xl font-bold mb-4">Add Product</h3>
                 <form id="product-form" class="space-y-4">
                     <input type="hidden" id="product-id">
@@ -144,19 +144,29 @@ export async function initStock(container) {
         e.preventDefault();
         const id = document.querySelector('#product-id').value;
         const name = document.querySelector('#product-name').value;
-        const price = document.querySelector('#product-price').value;
-        const quantity = document.querySelector('#product-qty').value;
+        const price = parseFloat(document.querySelector('#product-price').value) || 0;
+        const quantity = parseInt(document.querySelector('#product-qty').value) || 0;
 
         const payload = { name, price, quantity };
 
+        if (!name) { alert('Name is required'); return; }
+
+        let error;
         if (id) {
-            const { error } = await supabase.from('products').update(payload).eq('id', id);
-            if (!error) fetchProducts();
+            const { error: err } = await supabase.from('products').update(payload).eq('id', id);
+            error = err;
         } else {
-            const { error } = await supabase.from('products').insert([payload]);
-            if (!error) fetchProducts();
+            const { error: err } = await supabase.from('products').insert([payload]);
+            error = err;
         }
-        closeModal();
+
+        if (error) {
+            console.error('Save error:', error);
+            alert('Failed to save product: ' + error.message);
+        } else {
+            fetchProducts();
+            closeModal();
+        }
     });
 
     // Table Actions
