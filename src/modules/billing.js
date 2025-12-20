@@ -402,9 +402,9 @@ export async function initBilling(container) {
 
             // --- PROFESSIONAL HEADER ---
             // Company Info 
-            const companyName = "YOUR COMPANY NAME HERE";
-            const companyAddress = "Shop No. 1, Main Market, City Name - Pin Code";
-            const companyPhone = "Ph: +91 XXXXX XXXXX | Email: contact@yourdomain.com";
+            const companyName = "JRPL | SALES AND SERVICES";
+            const companyAddress = "Shop No. 3, Sameera Plaza, Naza Market, Lucknow (UP) - 226021";
+            const companyPhone = "Ph: +91 96346 23233 | Email: jaysanresource555@gmail.com";
 
             // Background Header
             doc.setFillColor(15, 23, 42); // slate-900
@@ -518,7 +518,7 @@ export async function initBilling(container) {
             doc.setTextColor(148, 163, 184);
 
             doc.text("Thank you for your business!", 14, pageHeight - 20);
-            doc.text("Terms: Warranty provided as per manufacturer terms. Goods once sold will not be taken back.", 14, pageHeight - 15);
+            doc.text("www.jaysanresource.com | jaysanresource555@gmail.com | +91 96346 23233", 14, pageHeight - 15 { align: "center" });
 
             doc.setFillColor(59, 130, 246); // accent
             doc.rect(0, pageHeight - 2, 210, 2, 'F');
