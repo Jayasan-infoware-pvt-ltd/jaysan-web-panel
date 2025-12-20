@@ -2,7 +2,9 @@ import './style.css'
 import { renderSidebar } from './modules/layout.js'
 import { initStock } from './modules/stock.js'
 import { initBilling } from './modules/billing.js'
+import { initInvoiceHistory } from './modules/invoice_history.js'
 import { initRepairs } from './modules/repairs.js'
+import { initRepairHistory } from './modules/repair_history.js'
 import { initAnalytics } from './modules/analytics.js'
 import { checkAuth, renderLogin } from './modules/auth.js'
 
@@ -66,8 +68,14 @@ function navigateTo(view) {
         case 'billing':
             initBilling(main);
             break;
+        case 'invoices':
+            initInvoiceHistory(main);
+            break;
         case 'repairs':
             initRepairs(main);
+            break;
+        case 'repair-history':
+            initRepairHistory(main);
             break;
         default:
             main.innerHTML = '<h1 class="text-2xl">Page Not Found</h1>';

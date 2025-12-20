@@ -402,9 +402,9 @@ export async function initBilling(container) {
 
             // --- PROFESSIONAL HEADER ---
             // Company Info 
-            const companyName = "GALAXY REPAIRS & SOLUTIONS";
-            const companyAddress = "123 Tech Park, Silicon Avenue, Bangalore - 560001";
-            const companyPhone = "Ph: +91 98765 43210 | Email: support@galaxyrepairs.com";
+            const companyName = "YOUR COMPANY NAME HERE";
+            const companyAddress = "Shop No. 1, Main Market, City Name - Pin Code";
+            const companyPhone = "Ph: +91 XXXXX XXXXX | Email: contact@yourdomain.com";
 
             // Background Header
             doc.setFillColor(15, 23, 42); // slate-900

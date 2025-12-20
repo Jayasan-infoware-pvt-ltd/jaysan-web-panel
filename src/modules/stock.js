@@ -13,8 +13,8 @@ export async function initStock(container) {
 
             <div class="card p-4">
                 <div class="relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
-                    <input type="text" id="search-stock" placeholder="Search products..." class="input-field pl-10" />
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none"></i>
+                    <input type="text" id="search-stock" placeholder="Search products..." class="input-field pl-12" />
                 </div>
             </div>
 

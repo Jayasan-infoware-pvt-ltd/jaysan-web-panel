@@ -8,8 +8,10 @@ export function renderSidebar(container, navigateCallback) {
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
         { id: 'stock', label: 'Stock Management', icon: 'box' },
-        { id: 'billing', label: 'Billing & Invoices', icon: 'receipt' },
-        { id: 'repairs', label: 'Repairs Panel', icon: 'wrench' },
+        { id: 'billing', label: 'New Invoice', icon: 'receipt' },
+        { id: 'invoices', label: 'Invoice History', icon: 'file-text' }, // New
+        { id: 'repairs', label: 'Repair Board', icon: 'wrench' },
+        { id: 'repair-history', label: 'All Repairs List', icon: 'clipboard-list' }, // New
     ];
 
     container.innerHTML = `
