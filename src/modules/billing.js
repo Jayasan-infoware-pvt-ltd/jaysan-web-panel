@@ -518,7 +518,7 @@ export async function initBilling(container) {
             doc.setTextColor(148, 163, 184);
 
             doc.text("Thank you for your business!", 14, pageHeight - 20);
-            doc.text("www.jaysanresource.com | jaysanresource555@gmail.com | +91 96346 23233", 14, pageHeight - 15 { align: "center" });
+            doc.text("www.jaysanresource.com | jaysanresource555@gmail.com | +91 96346 23233", 14, pageHeight - 15);
 
             doc.setFillColor(59, 130, 246); // accent
             doc.rect(0, pageHeight - 2, 210, 2, 'F');
@@ -538,3 +538,4 @@ export async function initBilling(container) {
         });
     });
 }
+
