@@ -13,14 +13,21 @@ const loading = document.querySelector('#loading')
 
 // State
 let currentState = {
-    view: 'dashboard', // dashboard, stock, billing, repairs
+    view: 'dashboard',
     user: null
 }
 
 async function init() {
     // Check session
-    // For demo simplicity, we will assume logged in effectively if keys are present or just show layout
-    // Real app would wait for checkAuth
+    const user = checkAuth();
+
+    if (!user) {
+        loading.style.display = 'none';
+        renderLogin(app);
+        return;
+    }
+
+    currentState.user = user;
 
     // Simulate loading
     setTimeout(() => {
@@ -56,6 +63,7 @@ function setCurrentView(view) {
 
 function navigateTo(view) {
     const main = document.querySelector('#main-content');
+    if (!main) return; // Safety check
     main.innerHTML = ''; // Clear current
 
     switch (view) {
