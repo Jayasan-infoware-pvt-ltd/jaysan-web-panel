@@ -131,60 +131,166 @@ export async function initInvoiceHistory(container) {
 
 // Re-using PDF logic (Simplified duplication for stability)
 async function generateAndDownloadPDF(billData) {
-    // Need to fetch items
-    const { data: items } = await supabase.from('bill_items').select('*').eq('bill_id', billData.id);
+    // Fetch bill items
+    const { data: items } = await supabase
+        .from('bill_items')
+        .select('*')
+        .eq('bill_id', billData.id);
 
-    const doc = new jsPDF();
-    const companyName = "YOUR COMPANY NAME HERE";
-    const companyAddress = "Shop No. 1, Main Market, City Name - Pin Code";
-    const companyPhone = "Ph: +91 XXXXX XXXXX | Email: contact@yourdomain.com";
+    const doc = new jsPDF('p', 'mm', 'a4');
 
-    // Header
-    doc.setFillColor(15, 23, 42);
+    /* =========================
+       COMPANY INFO (SAME STYLE)
+    ========================== */
+    const companyName = "JRPL | Jaysan Resource (P) Ltd.";
+    const companySer = "Computer Hardware and Peripherals Sales & Services";
+    const companyAddress = "Shop No. 3, Sameera Plaza, Naza Market, Lucknow (UP) - 226021";
+    const companyPhone = "Ph: +91 96346 23233 | Email: jaysanresource555@gmail.com";
+
+    /* =========================
+       HEADER
+    ========================== */
+    doc.setFillColor(15, 23, 42); // slate-900
     doc.rect(0, 0, 210, 45, 'F');
+
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
     doc.setFont(undefined, 'bold');
+    doc.setFontSize(22);
     doc.text(companyName, 14, 20);
+
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+
+    // Fixed-width text (IMPORTANT)
+    const leftX = 14;
+    const maxWidth = 120;
+
+    doc.text(companySer, leftX, 28, { maxWidth });
+    doc.text(companyAddress, leftX, 34, { maxWidth });
+    doc.text(companyPhone, leftX, 40, { maxWidth });
+
+    doc.setFontSize(26);
+    doc.setFont(undefined, 'bold');
+    doc.text("INVOICE", 195, 25, { align: 'right' });
+
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(companyAddress, 14, 28);
-    doc.text(companyPhone, 14, 33);
-    doc.setFontSize(26);
-    doc.text("INVOICE", 195, 25, { align: 'right' });
-    doc.setFontSize(10);
     doc.text(`#${billData.id.slice(0, 8).toUpperCase()}`, 195, 33, { align: 'right' });
 
-    // Customer
+    /* =========================
+       BILL TO + META
+    ========================== */
+    const yPos = 55;
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(9);
+    doc.text("BILL TO", 14, yPos);
+
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
-    doc.text(billData.customer_name || 'Walk-in', 14, 60);
+    doc.text(billData.customer_name || 'Walk-in Customer', 14, yPos + 6);
+
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(new Date(billData.created_at).toLocaleDateString(), 150, 60);
+    if (billData.customer_phone) {
+        doc.text(billData.customer_phone, 14, yPos + 11);
+    }
 
-    // Items
-    const tableData = items?.map((item, i) => [
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(9);
+    doc.text("DATE", 150, yPos);
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.text(new Date(billData.created_at).toLocaleDateString(), 150, yPos + 6);
+
+    /* =========================
+       ITEMS TABLE
+    ========================== */
+    const tableData = (items || []).map((item, i) => [
         i + 1,
         item.product_name,
         item.quantity,
         `INR ${item.price_at_sale.toFixed(2)}`,
         `INR ${(item.price_at_sale * item.quantity).toFixed(2)}`
-    ]) || [];
+    ]);
 
     doc.autoTable({
-        head: [['#', 'Item', 'Qty', 'Price', 'Total']],
+        head: [['#', 'Item Description', 'Qty', 'Price', 'Total']],
         body: tableData,
-        startY: 75,
+        startY: yPos + 20,
         theme: 'plain',
-        headStyles: { fillColor: [248, 250, 252], textColor: [100, 116, 139], fontStyle: 'bold' },
-        styles: { cellPadding: 3, fontSize: 10 }
+        styles: { fontSize: 10, cellPadding: 3 },
+        headStyles: {
+            fillColor: [248, 250, 252],
+            textColor: [100, 116, 139],
+            fontStyle: 'bold',
+            lineColor: [226, 232, 240],
+            lineWidth: 0.1
+        },
+        bodyStyles: {
+            textColor: [51, 65, 85]
+        },
+        columnStyles: {
+            0: { cellWidth: 15 },
+            1: { cellWidth: 'auto' },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 30, halign: 'right' },
+            4: { cellWidth: 35, halign: 'right' }
+        }
     });
 
+    /* =========================
+       TOTALS
+    ========================== */
+    const subtotal = items.reduce(
+        (sum, i) => sum + i.price_at_sale * i.quantity, 0
+    );
+    const gst = billData.gst_applied ? subtotal * 0.18 : 0;
+    const total = subtotal + gst;
+
     const finY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Total: INR ${billData.total_amount.toFixed(2)}`, 195, finY, { align: 'right' });
+    const xLabel = 140;
+    const xRight = 195;
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Subtotal", xLabel, finY);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`INR ${subtotal.toFixed(2)}`, xRight, finY, { align: 'right' });
+
+    if (billData.gst_applied) {
+        doc.setTextColor(100, 116, 139);
+        doc.text("GST (18%)", xLabel, finY + 6);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`INR ${gst.toFixed(2)}`, xRight, finY + 6, { align: 'right' });
+    }
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(130, finY + 12, 195, finY + 12);
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text("Total", xLabel, finY + 22);
+    doc.text(`INR ${total.toFixed(2)}`, xRight, finY + 22, { align: 'right' });
+
+    /* =========================
+       FOOTER
+    ========================== */
+    const pageHeight = doc.internal.pageSize.height;
+
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text("Thank you for your business!", 14, pageHeight - 20);
+    doc.text(
+        "www.jaysanresource.com | jaysanresource555@gmail.com | +91 96346 23233",
+        14,
+        pageHeight - 15
+    );
+
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, pageHeight - 2, 210, 2, 'F');
 
     doc.save(`Invoice_${billData.id.slice(0, 8)}.pdf`);
 }
-
