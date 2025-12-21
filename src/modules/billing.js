@@ -402,7 +402,8 @@ export async function initBilling(container) {
 
             // --- PROFESSIONAL HEADER ---
             // Company Info 
-            const companyName = "JRPL | SALES AND SERVICES";
+            const companyName = "JRPL | Jaysan Resource (P) Ltd.";
+            const companySer = "Computer Hardware and Peripherals Sales & Services";
             const companyAddress = "Shop No. 3, Sameera Plaza, Naza Market, Lucknow (UP) - 226021";
             const companyPhone = "Ph: +91 96346 23233 | Email: jaysanresource555@gmail.com";
 
@@ -417,6 +418,7 @@ export async function initBilling(container) {
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
+            doc.text(companySer, 14, 28);
             doc.text(companyAddress, 14, 28);
             doc.text(companyPhone, 14, 33);
 
@@ -538,4 +540,5 @@ export async function initBilling(container) {
         });
     });
 }
+
 
