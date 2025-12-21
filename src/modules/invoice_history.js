@@ -96,7 +96,7 @@ export async function initInvoiceHistory(container) {
 
         if (deleteBtn) {
             const adminPass = prompt("Enter Developer Password to DELETE:");
-            if (adminPass !== "admin123") {
+            if (adminPass !== "Jayasan@9045") {
                 alert("Incorrect Password! Access Denied.");
                 return;
             }
@@ -187,3 +187,4 @@ async function generateAndDownloadPDF(billData) {
 
     doc.save(`Invoice_${billData.id.slice(0, 8)}.pdf`);
 }
+
