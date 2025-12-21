@@ -5,7 +5,7 @@ export function checkAuth() {
 
 export function login(username, password) {
     // Simple hardcoded check for MVP
-    if (username === 'admin' && password === 'admin123') {
+    if (username === 'admin' && password === 'Deep@991155') {
         const user = { username: 'admin', role: 'admin' };
         localStorage.setItem('app_user', JSON.stringify(user));
         return { success: true, user };
@@ -84,3 +84,4 @@ export function renderLogin(container) {
         }
     });
 }
+
