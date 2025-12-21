@@ -418,7 +418,6 @@ export async function initBilling(container) {
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
-            doc.text(companySer, 14, 28);
             doc.text(companyAddress, 14, 33);
             doc.text(companyPhone, 14, 38);
 
@@ -540,6 +539,7 @@ export async function initBilling(container) {
         });
     });
 }
+
 
 
 
