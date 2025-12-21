@@ -19,7 +19,7 @@ export function renderSidebar(container, navigateCallback) {
             <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
                <i data-lucide="zap" class="text-white w-5 h-5"></i>
             </div>
-            <span class="font-bold text-lg tracking-wide">JRPL</span>
+            <span class="font-bold text-lg tracking-wide">RepairCmd</span>
         </div>
 
         <nav class="mt-6 px-4 space-y-2">
@@ -35,7 +35,7 @@ export function renderSidebar(container, navigateCallback) {
         </nav>
 
         <div class="absolute bottom-0 w-full p-4 border-t border-slate-700/50">
-            <button class="w-full flex items-center space-x-3 px-4 py-3 text-slate-400 hover:text-red-400 transition-colors">
+             <button id="logout-btn" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors">
                 <i data-lucide="log-out" class="w-5 h-5"></i>
                 <span class="font-medium">Logout</span>
             </button>
@@ -60,8 +60,17 @@ export function renderSidebar(container, navigateCallback) {
         });
     });
 
+    // Logout
+    const logoutBtn = container.querySelector('#logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                import('./auth.js').then(auth => auth.logout());
+            }
+        });
+    }
+
     // Set active default
     const defaultBtn = container.querySelector('[data-view="dashboard"]');
     if (defaultBtn) defaultBtn.click();
 }
-
