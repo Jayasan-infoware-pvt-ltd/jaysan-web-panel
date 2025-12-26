@@ -45,6 +45,7 @@ export async function initStock(container) {
                         <label class="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
                         <input type="text" id="product-name" required class="input-field" placeholder="e.g. iPhone Screen">
                     </div>
+                    
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Price</label>
@@ -52,7 +53,30 @@ export async function initStock(container) {
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
-                            <input type="number" id="product-qty" required class="input-field" placeholder="0">
+                            <input type="number" id="product-qty" required class="input-field" placeholder="0" min="0">
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Serials Container -->
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Serial Numbers</label>
+                        <div id="serials-container" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            <p class="text-xs text-slate-400 italic">Enter quantity to add serial numbers.</p>
+                        </div>
+                    </div>
+
+                    <div>
+                         <label class="block text-sm font-medium text-slate-700 mb-1">Vendor/Supplier Name</label>
+                         <input type="text" id="product-vendor" class="input-field" placeholder="e.g. ABC Electronics">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Sourced From (Location)</label>
+                            <input type="text" id="product-location" class="input-field" placeholder="e.g. Bangalore">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Courier Charges</label>
+                            <input type="number" id="product-courier" class="input-field" placeholder="0" value="0">
                         </div>
                     </div>
                     <div class="flex justify-end gap-3 mt-6">
@@ -119,6 +143,45 @@ export async function initStock(container) {
         renderTable(filtered);
     });
 
+    // Serials Logic
+    const qtyInput = container.querySelector('#product-qty');
+    const serialsContainer = container.querySelector('#serials-container');
+
+    function renderSerialInputs(count, existingSerials = []) {
+        if (count <= 0) {
+            serialsContainer.innerHTML = '<p class="text-xs text-slate-400 italic">Enter quantity to add serial numbers.</p>';
+            return;
+        }
+
+        // Keep existing values if quantity increases, truncate if decreases
+        // Actually, we'll rebuild to be safe, but try to preserve inputs
+        const currentInputs = Array.from(serialsContainer.querySelectorAll('input'));
+        const currentValues = currentInputs.map(i => i.value);
+
+        // Merge existing DB serials if this is first load
+        const valuesToUse = existingSerials.length > 0 ? existingSerials : currentValues;
+
+        let html = '';
+        for (let i = 0; i < count; i++) {
+            const val = valuesToUse[i] || '';
+            html += `
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-400 w-6">#${i + 1}</span>
+                    <input type="text" class="serial-input input-field py-1 text-sm" placeholder="Serial No." value="${val}">
+                </div>
+            `;
+        }
+        serialsContainer.innerHTML = html;
+    }
+
+    qtyInput.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value) || 0;
+        // If typing, we don't want to blow away data constantly logic-wise, but for simple UI:
+        // We need to grab current typed values before re-rendering
+        const currentInputs = Array.from(serialsContainer.querySelectorAll('.serial-input')).map(i => i.value);
+        renderSerialInputs(val, currentInputs);
+    });
+
     // Modal Logic
     const openModal = (isEdit = false, data = null) => {
         document.querySelector('#modal-title').textContent = isEdit ? 'Edit Product' : 'Add Product';
@@ -126,6 +189,14 @@ export async function initStock(container) {
         document.querySelector('#product-name').value = isEdit ? data.name : '';
         document.querySelector('#product-price').value = isEdit ? data.price : '';
         document.querySelector('#product-qty').value = isEdit ? data.quantity : '';
+        document.querySelector('#product-vendor').value = isEdit ? data.vendor_name || '' : '';
+        document.querySelector('#product-location').value = isEdit ? data.location_from || '' : '';
+        document.querySelector('#product-courier').value = isEdit ? data.courier_charges || 0 : '';
+
+        // Handle Serials
+        const serials = (isEdit && data.serial_number) ? data.serial_number.split(',') : [];
+        renderSerialInputs(isEdit ? data.quantity : 0, serials);
+
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     };
@@ -144,10 +215,17 @@ export async function initStock(container) {
         e.preventDefault();
         const id = document.querySelector('#product-id').value;
         const name = document.querySelector('#product-name').value;
+        // Collect serials
+        const serialInputs = container.querySelectorAll('.serial-input');
+        const serial_number = Array.from(serialInputs).map(i => i.value).filter(v => v.trim() !== '').join(',');
+
         const price = parseFloat(document.querySelector('#product-price').value) || 0;
         const quantity = parseInt(document.querySelector('#product-qty').value) || 0;
+        const vendor_name = document.querySelector('#product-vendor').value;
+        const location_from = document.querySelector('#product-location').value;
+        const courier_charges = parseFloat(document.querySelector('#product-courier').value) || 0;
 
-        const payload = { name, price, quantity };
+        const payload = { name, serial_number, price, quantity, vendor_name, location_from, courier_charges };
 
         if (!name) { alert('Name is required'); return; }
 
