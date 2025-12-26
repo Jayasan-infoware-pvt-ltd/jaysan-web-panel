@@ -49,6 +49,10 @@ export async function initRepairs(container) {
                         <input type="text" id="device-info" required class="input-field" placeholder="e.g. Samsung S21">
                     </div>
                     <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Serial Number <span class="text-red-500">*</span></label>
+                        <input type="text" id="serial-number" required class="input-field" placeholder="IMEI / SN">
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Issue Description</label>
                         <textarea id="issue-desc" class="input-field h-24 resize-none"></textarea>
                     </div>
@@ -115,6 +119,7 @@ export async function initRepairs(container) {
                         <span class="text-xs text-slate-400">${new Date(item.created_at).toLocaleDateString()}</span>
                     </div>
                     <p class="text-sm text-slate-600 font-medium mb-1">${item.device_details}</p>
+                    <p class="text-xs text-slate-400 font-mono mb-2">SN: ${item.serial_number || 'N/A'}</p>
                     <p class="text-xs text-slate-500 line-clamp-2 mb-3">${item.issue_description || 'No description'}</p>
                     <div class="flex justify-between items-center pt-2 border-t border-slate-50">
                         <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">#${item.contact_number?.slice(-4) || '----'}</span>
@@ -139,7 +144,9 @@ export async function initRepairs(container) {
         document.querySelector('#repair-id').value = isEdit ? data.id : '';
         document.querySelector('#cust-name').value = isEdit ? data.customer_name : '';
         document.querySelector('#cust-contact').value = isEdit ? data.contact_number : '';
+        document.querySelector('#cust-contact').value = isEdit ? data.contact_number : '';
         document.querySelector('#device-info').value = isEdit ? data.device_details : '';
+        document.querySelector('#serial-number').value = isEdit ? data.serial_number : '';
         document.querySelector('#issue-desc').value = isEdit ? data.issue_description : '';
         document.querySelector('#repair-status').value = isEdit ? data.status : 'Received';
         document.querySelector('#repair-cost').value = isEdit ? data.estimated_cost : '';
@@ -165,6 +172,7 @@ export async function initRepairs(container) {
             customer_name: document.querySelector('#cust-name').value,
             contact_number: document.querySelector('#cust-contact').value,
             device_details: document.querySelector('#device-info').value,
+            serial_number: document.querySelector('#serial-number').value,
             issue_description: document.querySelector('#issue-desc').value,
             status: document.querySelector('#repair-status').value,
             estimated_cost: document.querySelector('#repair-cost').value || 0,
