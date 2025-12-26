@@ -21,6 +21,7 @@ export async function initRepairHistory(container) {
                                 <th class="p-4">Date</th>
                                 <th class="p-4">Customer</th>
                                 <th class="p-4">Device</th>
+                                <th class="p-4">Serial No.</th>
                                 <th class="p-4">Description</th>
                                 <th class="p-4">Status</th>
                                 <th class="p-4 text-right">Cost</th>
@@ -64,12 +65,16 @@ export async function initRepairHistory(container) {
 
         tbody.innerHTML = items.map(r => `
             <tr class="hover:bg-slate-50 transition-colors">
-                <td class="p-4 whitespace-nowrap">${new Date(r.created_at).toLocaleDateString()}</td>
+                <td class="p-4 whitespace-nowrap">
+                    <div class="font-medium text-slate-700">${new Date(r.created_at).toLocaleDateString()}</div>
+                    <div class="text-xs text-slate-400">${new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                </td>
                 <td class="p-4 font-medium text-slate-800">
                     ${r.customer_name}
                     <div class="text-xs text-slate-400">${r.contact_number || ''}</div>
                 </td>
                 <td class="p-4">${r.device_details}</td>
+                <td class="p-4 font-mono text-xs text-slate-500">${r.serial_number || '-'}</td>
                 <td class="p-4 max-w-xs truncate" title="${r.issue_description || ''}">${r.issue_description || '-'}</td>
                 <td class="p-4">
                     <span class="px-2 py-1 rounded-full text-xs font-bold 
@@ -95,7 +100,7 @@ export async function initRepairHistory(container) {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const adminPass = prompt("Enter Developer Password to DELETE:");
-                if (adminPass !== "Jayasan@9045") {
+                if (adminPass !== "admin123") {
                     alert("Incorrect Password! Access Denied.");
                     return;
                 }
@@ -115,6 +120,7 @@ export async function initRepairHistory(container) {
         const filtered = repairs.filter(r =>
             r.customer_name.toLowerCase().includes(term) ||
             r.device_details.toLowerCase().includes(term) ||
+            (r.serial_number && r.serial_number.toLowerCase().includes(term)) ||
             r.status.toLowerCase().includes(term)
         );
         renderTable(filtered);
@@ -122,4 +128,3 @@ export async function initRepairHistory(container) {
 
     fetchRepairs();
 }
-
