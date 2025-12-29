@@ -271,7 +271,7 @@ export async function initRepairHistory(container) {
                 hidePopup(); // Hide popup UI
                 
                 const adminPass = prompt("Enter Developer Password to DELETE:");
-                if (adminPass !== "admin123") {
+                if (adminPass !== "Jayasan@9045") {
                     alert("Incorrect Password! Access Denied.");
                     return;
                 }
@@ -324,3 +324,4 @@ export async function initRepairHistory(container) {
 
     fetchRepairs();
 }
+
