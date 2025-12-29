@@ -9,7 +9,7 @@ export async function initAnalytics(container) {
         <div class="space-y-6">
             <h2 class="text-3xl font-bold text-slate-800">Dashboard</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Stat Cards -->
                 <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg shadow-blue-500/30">
                     <h3 class="text-blue-100 text-sm font-medium mb-1">Today's Sales</h3>
@@ -21,13 +21,21 @@ export async function initAnalytics(container) {
                     <p class="text-3xl font-bold" id="active-repairs">0</p>
                 </div>
 
+                <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg shadow-indigo-500/30">
+                     <h3 class="text-indigo-100 text-sm font-medium mb-1">Total Revenue</h3>
+                     <p class="text-2xl font-bold" id="total-revenue">₹0</p>
+                </div>
+
                 <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg shadow-emerald-500/30 relative overflow-hidden group">
                     <h3 class="text-emerald-100 text-sm font-medium mb-1">Monthly Estimate</h3>
                     <p class="text-3xl font-bold" id="month-sales">₹0</p>
-                    <button id="download-month-report" class="absolute bottom-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-lg backdrop-blur-sm transition-colors" title="Download Monthly Report">
-                        <i data-lucide="file-down" class="w-5 h-5"></i>
-                    </button>
-                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors"></div>
+                    
+                    <div class="absolute bottom-4 right-4 flex items-center gap-2">
+                        <input type="month" id="report-month-picker" class="text-xs text-slate-800 rounded bg-white/90 border-0 h-8 px-2 focus:ring-2 focus:ring-emerald-500" value="${new Date().toISOString().slice(0, 7)}">
+                        <button id="download-month-report" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg backdrop-blur-sm transition-colors" title="Download Monthly Report">
+                            <i data-lucide="file-down" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -86,6 +94,11 @@ export async function initAnalytics(container) {
         .in('status', ['Received', 'In Process', 'Part Not Available']);
 
     container.querySelector('#active-repairs').textContent = activeRepairs || 0;
+
+    // Total Revenue (All Time)
+    const { data: allBills } = await supabase.from('bills').select('total_amount');
+    const totalRev = allBills?.reduce((sum, b) => sum + b.total_amount, 0) || 0;
+    container.querySelector('#total-revenue').textContent = `₹${totalRev.toLocaleString()}`;
 
     // Monthly (Rough estimate using logic or fetch)
     const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -178,17 +191,21 @@ export async function initAnalytics(container) {
     const btn = container.querySelector('#download-month-report');
     if (btn) {
         btn.addEventListener('click', async () => {
-            const doc = new jsPDF();
-            doc.text(`Monthly Sales Report - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`, 14, 20);
+            const dateInput = container.querySelector('#report-month-picker').value; // yyyy-mm
+            const [year, month] = dateInput.split('-');
+            const startDate = new Date(year, month - 1, 1).toISOString();
+            const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
+            const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
 
-            // Monthly start date
-            const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+            const doc = new jsPDF();
+            doc.text(`Monthly Sales Report - ${monthName}`, 14, 20);
 
             // Fetch detailed data for month
             const { data: reportBills } = await supabase
                 .from('bills')
                 .select('*, bill_items(*)')
-                .gte('created_at', firstDay)
+                .gte('created_at', startDate)
+                .lte('created_at', endDate)
                 .order('created_at', { ascending: true });
 
             if (!reportBills || reportBills.length === 0) {
@@ -204,6 +221,7 @@ export async function initAnalytics(container) {
                 const date = new Date(bill.created_at).toLocaleDateString();
                 const items = bill.bill_items.map(i => `${i.product_name} (${i.quantity})`).join(', ');
                 const gstAmt = bill.gst_applied ? (bill.total_amount * 0.18 / 1.18) : 0;
+                // Note: Logic above assumes 18% included. If using split GST, might vary, but approx ok for summary.
 
                 totalSales += bill.total_amount;
                 if (bill.gst_applied) totalGST += gstAmt;
@@ -213,12 +231,13 @@ export async function initAnalytics(container) {
                     bill.customer_name || 'Walk-in',
                     items,
                     bill.gst_applied ? 'Yes' : 'No',
+                    bill.payment_status || 'Paid',
                     bill.total_amount.toFixed(2)
                 ]);
             });
 
             doc.autoTable({
-                head: [['Date', 'Customer', 'Items', 'GST', 'Amount']],
+                head: [['Date', 'Customer', 'Items', 'GST', 'Status', 'Amount']],
                 body: tableRows,
                 startY: 30,
             });
@@ -226,10 +245,9 @@ export async function initAnalytics(container) {
             const finalY = doc.lastAutoTable.finalY + 10;
             doc.setFontSize(11);
             doc.text(`Total Sales: ${totalSales.toFixed(2)}`, 14, finalY);
-            doc.text(`Total GST Collected (approx): ${totalGST.toFixed(2)}`, 14, finalY + 6);
-            doc.text(`Total Transactions: ${reportBills.length}`, 14, finalY + 12);
+            doc.text(`Total Transactions: ${reportBills.length}`, 14, finalY + 6);
 
-            doc.save(`Monthly_Report_${new Date().getMonth() + 1}_${new Date().getFullYear()}.pdf`);
+            doc.save(`Monthly_Report_${monthName.replace(' ', '_')}.pdf`);
         });
     }
 }
