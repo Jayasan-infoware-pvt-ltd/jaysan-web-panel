@@ -86,7 +86,7 @@ export async function initInvoiceHistory(container) {
         const rect = btn.getBoundingClientRect();
         currentActiveBill = bill;
         popupMenu.style.top = `${rect.bottom + 5}px`;
-        popupMenu.style.left = `${rect.right - 160}px`; 
+        popupMenu.style.left = `${rect.right - 160}px`;
         popupMenu.classList.remove('hidden');
     }
 
@@ -95,7 +95,7 @@ export async function initInvoiceHistory(container) {
         // We do NOT reset currentActiveBill here immediately if we are inside an event, 
         // but we rely on the local variable in the click handlers.
         // To be safe, we usually reset it, but the handlers save it first.
-        setTimeout(() => { currentActiveBill = null; }, 100); 
+        setTimeout(() => { currentActiveBill = null; }, 100);
     }
 
     document.addEventListener('click', (e) => {
@@ -114,7 +114,7 @@ export async function initInvoiceHistory(container) {
         hidePopup();
         const { data: items } = await supabase.from('bill_items').select('*').eq('bill_id', bill.id);
 
-        const itemsHtml = (items && items.length > 0) 
+        const itemsHtml = (items && items.length > 0)
             ? items.map((item, index) => `
                 <div class="flex justify-between items-center py-2 border-b border-slate-100 last:border-0 text-sm">
                     <div class="flex-1">
@@ -124,7 +124,7 @@ export async function initInvoiceHistory(container) {
                     <div class="text-slate-600 w-16 text-center">x${item.quantity}</div>
                     <div class="font-medium text-slate-800 w-24 text-right">₹${(item.price_at_sale * item.quantity).toFixed(2)}</div>
                 </div>
-            `).join('') 
+            `).join('')
             : '<div class="text-sm text-slate-400 italic">No items found for this invoice.</div>';
 
         modalContent.innerHTML = `
@@ -147,12 +147,14 @@ export async function initInvoiceHistory(container) {
                 <div class="col-span-2 flex justify-between items-center mb-4">
                     <div>
                         <label class="text-xs font-bold text-slate-400 uppercase">Status</label>
-                        <div class="mt-1">
-                            <span class="px-2 py-1 rounded-full text-xs font-bold 
-                                ${bill.payment_status === 'Paid' ? 'bg-green-100 text-green-700' :
-                                bill.payment_status === 'Pending' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">
-                                ${bill.payment_status || 'Paid'}
-                            </span>
+                        <div class="mt-1 flex items-center gap-2">
+                             <select id="modal-status-select" class="text-xs font-bold rounded-lg border-slate-200 bg-slate-50 py-1 pl-2 pr-8 focus:ring-0">
+                                <option value="Paid" ${bill.payment_status === 'Paid' ? 'selected' : ''}>Paid</option>
+                                <option value="Pending" ${bill.payment_status === 'Pending' ? 'selected' : ''}>Pending</option>
+                            </select>
+                            <button id="update-status-btn" class="p-1 text-slate-400 hover:text-blue-600 transition-colors" title="Update Status">
+                                <i data-lucide="save" class="w-4 h-4"></i>
+                            </button>
                         </div>
                     </div>
                     <div class="text-right">
@@ -175,7 +177,7 @@ export async function initInvoiceHistory(container) {
         `;
 
         modal.classList.remove('hidden');
-        
+
         // Modal Download Handler
         modalDownloadBtn.onclick = async () => {
             try {
@@ -185,6 +187,34 @@ export async function initInvoiceHistory(container) {
                 alert("Error generating PDF: " + error.message);
             }
         };
+
+        // Status Update Handler (Inside Modal Scope)
+        const updateStatusBtn = container.querySelector('#update-status-btn');
+        if (updateStatusBtn) {
+            updateStatusBtn.onclick = async () => {
+                const newStatus = container.querySelector('#modal-status-select').value;
+                const { error } = await supabase.from('bills').update({ payment_status: newStatus }).eq('id', bill.id);
+
+                if (error) {
+                    alert('Error updating status: ' + error.message);
+                } else {
+                    bill.payment_status = newStatus; // Update local object
+
+                    // Feedback
+                    const icon = updateStatusBtn.querySelector('i');
+                    if (icon) icon.setAttribute('data-lucide', 'check');
+                    updateStatusBtn.classList.add('text-green-600');
+                    if (window.lucide) window.lucide.createIcons();
+
+                    setTimeout(() => {
+                        if (icon) icon.setAttribute('data-lucide', 'save');
+                        updateStatusBtn.classList.remove('text-green-600');
+                        if (window.lucide) window.lucide.createIcons();
+                        fetchBills(); // Refresh main list
+                    }, 1000);
+                }
+            };
+        }
 
         if (window.lucide) window.lucide.createIcons();
     }
@@ -196,6 +226,20 @@ export async function initInvoiceHistory(container) {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.add('hidden');
     });
+
+    // Delegated listener for dynamically created Update Status button
+    modalContent.addEventListener('click', async (e) => {
+        const btn = e.target.closest('#update-status-btn');
+        if (btn) {
+            const select = container.querySelector('#modal-status-select');
+            const newStatus = select.value;
+            const billId = currentActiveBill ? currentActiveBill.id : (bills.find(b => b.invoice_number === container.querySelector('.font-mono').innerText) || {}).id; // Fallback or use closure if reliable
+
+            // Actually, openInvoiceModal has closure over 'bill'. We need to attach listener inside openInvoiceModal OR use delegation if we accept re-attaching.
+            // Best: Attach inside openInvoiceModal.
+        }
+    });
+
 
     // --- Fetch ---
     async function fetchBills() {
@@ -230,8 +274,7 @@ export async function initInvoiceHistory(container) {
                 </td>
                 <td class="p-4 text-center">
                     <span class="px-2 py-1 rounded text-xs font-bold 
-                        ${b.payment_status === 'Paid' ? 'bg-green-100 text-green-700' :
-                b.payment_status === 'Pending' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">
+                        ${b.payment_status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
                         ${b.payment_status || 'Paid'}
                     </span>
                 </td>
@@ -243,7 +286,7 @@ export async function initInvoiceHistory(container) {
                 </td>
             </tr>
         `).join('');
-        
+
         if (window.lucide) window.lucide.createIcons();
         attachRowListeners();
     }
@@ -269,10 +312,10 @@ export async function initInvoiceHistory(container) {
         if (currentActiveBill) {
             // 1. Save bill to local variable to prevent it from being null after hiding popup
             const billToDownload = currentActiveBill;
-            
+
             // 2. Hide Popup
             hidePopup();
-            
+
             // 3. Generate PDF with error handling
             try {
                 await generateAndDownloadPDF(billToDownload);
@@ -287,7 +330,7 @@ export async function initInvoiceHistory(container) {
         if (currentActiveBill) {
             hidePopup();
             const adminPass = prompt("Enter Developer Password to DELETE:");
-            if (adminPass !== "admin123") {
+            if (adminPass !== "Jayasan@9045") {
                 alert("Incorrect Password! Access Denied.");
                 return;
             }
