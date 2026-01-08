@@ -189,8 +189,13 @@ export async function initRepairs(container) {
                         <span class="text-xs text-slate-400">${new Date(item.created_at).toLocaleDateString()}</span>
                     </div>
                     <p class="text-sm text-slate-600 font-medium mb-1">${item.device_details}</p>
-                    <p class="text-xs text-slate-400 font-mono mb-2">SN: ${item.serial_number || 'N/A'}</p>
+                    <p class="text-xs text-slate-400 font-mono mb-2">Model: ${item.model_number || 'N/A'}</p>
                     <p class="text-xs text-slate-500 line-clamp-2 mb-3">${item.issue_description || 'No description'}</p>
+                    ${item.status === 'Delivered' && item.delivered_at ? `
+                        <p class="text-xs text-green-600 font-medium mb-2 border-t border-slate-100 pt-2">
+                            Delivered: ${new Date(item.delivered_at).toLocaleString()}
+                        </p>
+                    ` : ''}
                     <div class="flex justify-between items-center pt-2 border-t border-slate-50">
                         <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">#${item.contact_number?.slice(-4) || '----'}</span>
                         <div class="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -275,8 +280,13 @@ export async function initRepairs(container) {
             part_replaced_name: document.querySelector('#part-replaced-name').value,
             status: document.querySelector('#repair-status').value,
             estimated_cost: document.querySelector('#repair-cost').value || 0,
+            updated_at: new Date().toISOString(), // Always update timestamp
             // custom_message: ... (Adding back to payload just in case, even if hidden in form currently, defaults to null)
         };
+
+        if (payload.status === 'Delivered') {
+            payload.delivered_at = new Date().toISOString();
+        }
 
         if (id) {
             const { error } = await supabase.from('repairs').update(payload).eq('id', id);
