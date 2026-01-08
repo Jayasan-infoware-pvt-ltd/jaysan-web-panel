@@ -26,7 +26,7 @@ export async function initRepairHistory(container) {
                                 <th class="p-4">Date</th>
                                 <th class="p-4">Customer</th>
                                 <th class="p-4">Device</th>
-                                <th class="p-4">Serial No.</th>
+                                <th class="p-4">Model No.</th>
                                 <th class="p-4">Description</th>
                                 <th class="p-4">Status</th>
                                 <th class="p-4 text-right">Cost</th>
@@ -42,7 +42,6 @@ export async function initRepairHistory(container) {
         </div>
         
         <!-- GLOBAL FLOATING POPUP MENU -->
-        <!-- This sits outside the table flow so it never gets clipped/hidden -->
         <div id="global-action-menu" class="hidden fixed z-[60] bg-white rounded-lg shadow-xl border border-slate-100 w-40 py-1 animate-in fade-in zoom-in-95 duration-100">
             <button id="popup-view" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                 <i data-lucide="eye" class="w-4 h-4"></i> View Detail
@@ -75,12 +74,12 @@ export async function initRepairHistory(container) {
     if (window.lucide) window.lucide.createIcons();
     const tbody = container.querySelector('#repair-list-body');
     const searchInput = container.querySelector('#search-repair');
-    
+
     // Popup Elements
     const popupMenu = container.querySelector('#global-action-menu');
     const popupViewBtn = container.querySelector('#popup-view');
     const popupDeleteBtn = container.querySelector('#popup-delete');
-    let currentActiveId = null; // Tracks which ID is currently being acted upon
+    let currentActiveId = null;
 
     let repairs = [];
 
@@ -88,12 +87,8 @@ export async function initRepairHistory(container) {
     function showPopup(btn, id) {
         const rect = btn.getBoundingClientRect();
         currentActiveId = id;
-
-        // Position the popup at the button's location, aligned to the right
-        // Using fixed positioning ensures it pops OVER the table without clipping
         popupMenu.style.top = `${rect.bottom + 5}px`;
-        popupMenu.style.left = `${rect.right - 150}px`; 
-        
+        popupMenu.style.left = `${rect.right - 150}px`;
         popupMenu.classList.remove('hidden');
     }
 
@@ -102,7 +97,6 @@ export async function initRepairHistory(container) {
         currentActiveId = null;
     }
 
-    // Close popup when clicking anywhere else
     document.addEventListener('click', (e) => {
         if (!popupMenu.contains(e.target) && !e.target.closest('.menu-trigger')) {
             hidePopup();
@@ -115,7 +109,7 @@ export async function initRepairHistory(container) {
     const closeModalBtns = [container.querySelector('#close-modal-btn'), container.querySelector('#close-modal-action')];
 
     function openModal(repair) {
-        hidePopup(); // Close menu when opening modal
+        hidePopup();
         modalContent.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
@@ -145,8 +139,8 @@ export async function initRepairHistory(container) {
                     <div class="mt-1 inline-block">
                         <span class="px-2 py-1 rounded-full text-xs font-bold 
                             ${repair.status === 'Delivered' ? 'bg-green-100 text-green-700' :
-                            repair.status === 'Repaired' ? 'bg-blue-100 text-blue-700' :
-                            repair.status === 'Part Not Available' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">
+                repair.status === 'Repaired' ? 'bg-blue-100 text-blue-700' :
+                    repair.status === 'Part Not Available' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">
                             ${repair.status}
                         </span>
                     </div>
@@ -169,6 +163,17 @@ export async function initRepairHistory(container) {
                     </div>
                 </div>
 
+                ${repair.status === 'Delivered' && repair.delivered_at ? `
+                <div class="col-span-2 bg-green-50 p-3 rounded border border-green-100 mt-2">
+                    <div class="flex items-center gap-2 text-green-700 font-bold text-xs uppercase">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i> Delivered
+                    </div>
+                    <div class="text-green-800 text-sm mt-1">
+                        ${new Date(repair.delivered_at).toLocaleString()}
+                    </div>
+                </div>
+                ` : ''}
+
                 <div class="col-span-2 text-xs text-slate-400 border-t pt-2 mt-2">
                     Created on: ${new Date(repair.created_at).toLocaleString()} <br>
                     ID: ${repair.id}
@@ -188,6 +193,91 @@ export async function initRepairHistory(container) {
     });
 
     // --- Data Fetching ---
+
+    function openModal(repair) {
+        hidePopup();
+        modalContent.innerHTML = `
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Customer Info</label>
+                    <div class="text-slate-800 font-medium">${repair.customer_name}</div>
+                    <div class="text-slate-500 text-sm">${repair.contact_number || 'No contact'}</div>
+                </div>
+                
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase">Device</label>
+                    <div class="text-slate-800 font-medium">${repair.device_details}</div>
+                    <div class="text-xs text-slate-500">Model: ${repair.model_number || '-'}</div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase">Serial No.</label>
+                    <div class="text-slate-800 font-mono">${repair.serial_number || '-'}</div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase">Technician</label>
+                    <div class="text-slate-800">${repair.technician_name || '-'}</div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase">Status</label>
+                    <div class="mt-1 inline-block">
+                        <span class="px-2 py-1 rounded-full text-xs font-bold 
+                            ${repair.status === 'Delivered' ? 'bg-green-100 text-green-700' :
+                repair.status === 'Repaired' ? 'bg-blue-100 text-blue-700' :
+                    repair.status === 'Part Not Available' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">
+                            ${repair.status}
+                        </span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase">Estimated Cost</label>
+                    <div class="text-slate-800 font-bold">₹${repair.estimated_cost || 0}</div>
+                </div>
+                
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase">Part Replaced</label>
+                    <div class="text-slate-800">${repair.part_replaced_name || 'None'}</div>
+                </div>
+
+                <div class="col-span-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Issue Description</label>
+                    <div class="p-3 bg-slate-50 rounded border border-slate-100 text-sm text-slate-700 mt-1">
+                        ${repair.issue_description || 'No description provided.'}
+                    </div>
+                </div>
+
+                ${repair.status === 'Delivered' && repair.delivered_at ? `
+                <div class="col-span-2 bg-green-50 p-3 rounded border border-green-100 mt-2">
+                    <div class="flex items-center gap-2 text-green-700 font-bold text-xs uppercase">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i> Delivered
+                    </div>
+                    <div class="text-green-800 text-sm mt-1">
+                        ${new Date(repair.delivered_at).toLocaleString()}
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="col-span-2 text-xs text-slate-400 border-t pt-2 mt-2">
+                    Created on: ${new Date(repair.created_at).toLocaleString()} <br>
+                    ID: ${repair.id}
+                </div>
+            </div>
+        `;
+        modal.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    closeModalBtns.forEach(btn => {
+        btn?.addEventListener('click', () => modal.classList.add('hidden'));
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+
     async function fetchRepairs() {
         const { data, error } = await supabase
             .from('repairs')
@@ -215,13 +305,19 @@ export async function initRepairHistory(container) {
                 <td class="p-4 whitespace-nowrap">
                     <div class="font-medium text-slate-700">${new Date(r.created_at).toLocaleDateString()}</div>
                     <div class="text-xs text-slate-400">${new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    ${r.status === 'Delivered' && r.delivered_at ? `
+                        <div class="mt-1 pt-1 border-t border-slate-100">
+                             <span class="text-[10px] font-bold text-green-600 uppercase">Delivered</span>
+                             <div class="text-xs text-green-700 font-medium">${new Date(r.delivered_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+                        </div>
+                    ` : ''}
                 </td>
                 <td class="p-4 font-medium text-slate-800">
                     ${r.customer_name}
                     <div class="text-xs text-slate-400">${r.contact_number || ''}</div>
                 </td>
                 <td class="p-4">${r.device_details}</td>
-                <td class="p-4 font-mono text-xs text-slate-500">${r.serial_number || '-'}</td>
+                <td class="p-4 font-mono text-xs text-slate-500">${r.model_number || '-'}</td>
                 <td class="p-4 max-w-xs truncate" title="${r.issue_description || ''}">${r.issue_description || '-'}</td>
                 <td class="p-4">
                     <span class="px-2 py-1 rounded-full text-xs font-bold 
@@ -248,28 +344,32 @@ export async function initRepairHistory(container) {
         // Trigger for Popup
         tbody.querySelectorAll('.menu-trigger').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent document click from closing immediately
+                e.stopPropagation();
                 const id = btn.dataset.id;
                 showPopup(btn, id);
             });
         });
 
-        // Handle Popup View Click
-        popupViewBtn.addEventListener('click', () => {
+        // Re-attach listeners for popup buttons to avoid duplicates if renderTable is called multiple times
+        // Clone and replace to clear old listeners
+        const oldPopupViewBtn = container.querySelector('#popup-view');
+        const newPopupViewBtn = oldPopupViewBtn.cloneNode(true);
+        oldPopupViewBtn.replaceWith(newPopupViewBtn);
+        newPopupViewBtn.addEventListener('click', () => {
             if (currentActiveId) {
                 const repair = repairs.find(r => r.id == currentActiveId);
                 if (repair) openModal(repair);
             }
         });
 
-        // Handle Popup Delete Click (FIXED LOGIC HERE)
-        popupDeleteBtn.addEventListener('click', async () => {
-            // 1. Capture ID locally before hiding popup (which clears the global variable)
+        const oldPopupDeleteBtn = container.querySelector('#popup-delete');
+        const newPopupDeleteBtn = oldPopupDeleteBtn.cloneNode(true);
+        oldPopupDeleteBtn.replaceWith(newPopupDeleteBtn);
+        newPopupDeleteBtn.addEventListener('click', async () => {
             const idToDelete = currentActiveId;
-
             if (idToDelete) {
-                hidePopup(); // Hide popup UI
-                
+                hidePopup();
+
                 const adminPass = prompt("Enter Developer Password to DELETE:");
                 if (adminPass !== "Jayasan@9045") {
                     alert("Incorrect Password! Access Denied.");
@@ -277,7 +377,6 @@ export async function initRepairHistory(container) {
                 }
 
                 if (confirm('Delete this repair entry permanently?')) {
-                    // 2. Use the locally captured ID for the delete operation
                     const { error } = await supabase.from('repairs').delete().eq('id', idToDelete);
                     if (error) alert('Error: ' + error.message);
                     else fetchRepairs();
@@ -324,4 +423,3 @@ export async function initRepairHistory(container) {
 
     fetchRepairs();
 }
-
