@@ -5,6 +5,7 @@ import { initBilling } from './modules/billing.js'
 import { initInvoiceHistory } from './modules/invoice_history.js'
 import { initRepairs } from './modules/repairs.js'
 import { initRepairHistory } from './modules/repair_history.js'
+import { initExpenditure } from './modules/expenditure.js'
 import { initAnalytics } from './modules/analytics.js'
 import { checkAuth, renderLogin } from './modules/auth.js'
 
@@ -84,6 +85,9 @@ function navigateTo(view) {
             break;
         case 'repair-history':
             initRepairHistory(main);
+            break;
+        case 'expenditure':
+            initExpenditure(main);
             break;
         default:
             main.innerHTML = '<h1 class="text-2xl">Page Not Found</h1>';
