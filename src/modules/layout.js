@@ -9,7 +9,8 @@ export function renderSidebar(container, navigateCallback) {
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
         { id: 'stock', label: 'Stock Management', icon: 'box' },
         { id: 'billing', label: 'New Invoice', icon: 'receipt' },
-        { id: 'invoices', label: 'Invoice History', icon: 'file-text' }, // New
+        { id: 'invoices', label: 'Invoice History', icon: 'file-text' },
+        { id: 'expenditure', label: 'Expenditure', icon: 'wallet' }, // New
         { id: 'repairs', label: 'Repair Board', icon: 'wrench' },
         { id: 'repair-history', label: 'All Repairs List', icon: 'clipboard-list' }, // New
     ];
@@ -19,7 +20,7 @@ export function renderSidebar(container, navigateCallback) {
             <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
                <i data-lucide="zap" class="text-white w-5 h-5"></i>
             </div>
-            <span class="font-bold text-lg tracking-wide">JRPL</span>
+            <span class="font-bold text-lg tracking-wide">RepairCmd</span>
         </div>
 
         <nav class="mt-6 px-4 space-y-2">
@@ -74,4 +75,3 @@ export function renderSidebar(container, navigateCallback) {
     const defaultBtn = container.querySelector('[data-view="dashboard"]');
     if (defaultBtn) defaultBtn.click();
 }
-
