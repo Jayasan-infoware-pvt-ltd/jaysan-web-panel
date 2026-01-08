@@ -9,7 +9,7 @@ export async function initAnalytics(container) {
         <div class="space-y-6">
             <h2 class="text-3xl font-bold text-slate-800">Dashboard</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- Stat Cards -->
                 <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg shadow-blue-500/30">
                     <h3 class="text-blue-100 text-sm font-medium mb-1">Today's Sales</h3>
@@ -26,13 +26,29 @@ export async function initAnalytics(container) {
                      <p class="text-2xl font-bold" id="total-revenue">₹0</p>
                 </div>
 
+                <div class="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-6 text-white shadow-lg shadow-rose-500/30">
+                     <h3 class="text-rose-100 text-sm font-medium mb-1">Expenditure</h3>
+                     <p class="text-2xl font-bold" id="total-expenditure">₹0</p>
+                </div>
+
+                <div class="bg-slate-800 rounded-xl p-6 text-white shadow-lg shadow-slate-800/30 relative overflow-hidden group">
+                     <h3 class="text-slate-300 text-sm font-medium mb-1">Net Profit / Loss</h3>
+                     <p class="text-2xl font-bold" id="net-profit">₹0</p>
+                     
+                     <div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button id="download-financial-report" class="bg-white/10 hover:bg-white/20 p-2 rounded-lg backdrop-blur-sm transition-colors text-emerald-400" title="Download Full Financial Report">
+                            <i data-lucide="file-bar-chart-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg shadow-emerald-500/30 relative overflow-hidden group">
                     <h3 class="text-emerald-100 text-sm font-medium mb-1">Monthly Estimate</h3>
                     <p class="text-3xl font-bold" id="month-sales">₹0</p>
                     
                     <div class="absolute bottom-4 right-4 flex items-center gap-2">
                         <input type="month" id="report-month-picker" class="text-xs text-slate-800 rounded bg-white/90 border-0 h-8 px-2 focus:ring-2 focus:ring-emerald-500" value="${new Date().toISOString().slice(0, 7)}">
-                        <button id="download-month-report" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg backdrop-blur-sm transition-colors" title="Download Monthly Report">
+                        <button id="download-revenue-report" class="bg-white/20 hover:bg-white/30 p-2 rounded-lg backdrop-blur-sm transition-colors" title="Download Revenue Invoice">
                             <i data-lucide="file-down" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -78,6 +94,214 @@ export async function initAnalytics(container) {
         </div>
     `;
 
+    if (window.lucide) window.lucide.createIcons();
+
+    // ----------------------------------------------------
+    // 1. REVENUE INVOICE (Simple Sales Report)
+    // ----------------------------------------------------
+    const revBtn = container.querySelector('#download-revenue-report');
+    if (revBtn) {
+        revBtn.addEventListener('click', async () => {
+            const dateInput = container.querySelector('#report-month-picker').value;
+            const [year, month] = dateInput.split('-');
+            const startDate = new Date(year, month - 1, 1).toISOString();
+            const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
+            const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            const doc = new jsPDF();
+            doc.text(`Monthly Sales Report - ${monthName}`, 14, 20);
+
+            const { data: reportBills } = await supabase
+                .from('bills')
+                .select('*, bill_items(*)')
+                .gte('created_at', startDate)
+                .lte('created_at', endDate)
+                .order('created_at', { ascending: true });
+
+            if (!reportBills || reportBills.length === 0) {
+                alert('No data for this month');
+                return;
+            }
+
+            const tableRows = [];
+            let totalSales = 0;
+
+            reportBills.forEach(bill => {
+                const date = new Date(bill.created_at).toLocaleDateString();
+                const items = bill.bill_items.map(i => `${i.product_name} (${i.quantity})`).join(', ');
+                totalSales += bill.total_amount;
+                tableRows.push([
+                    date,
+                    bill.customer_name || 'Walk-in',
+                    items,
+                    bill.gst_applied ? 'Yes' : 'No',
+                    bill.payment_status || 'Paid',
+                    bill.total_amount.toFixed(2)
+                ]);
+            });
+
+            doc.autoTable({
+                head: [['Date', 'Customer', 'Items', 'GST', 'Status', 'Amount']],
+                body: tableRows,
+                startY: 30,
+            });
+
+            const finalY = doc.lastAutoTable.finalY + 10;
+            doc.setFontSize(11);
+            doc.text(`Total Sales: ${totalSales.toFixed(2)}`, 14, finalY);
+            doc.text(`Total Transactions: ${reportBills.length}`, 14, finalY + 6);
+
+            doc.save(`Revenue_Invoice_${monthName.replace(' ', '_')}.pdf`);
+        });
+    }
+
+    // ----------------------------------------------------
+    // 2. FINANCIAL REPORT (Full Detail with Expenses)
+    // ----------------------------------------------------
+    const finBtn = container.querySelector('#download-financial-report');
+    if (finBtn) {
+        finBtn.addEventListener('click', async () => {
+            const dateInput = container.querySelector('#report-month-picker').value;
+            const [year, month] = dateInput.split('-');
+            const startDate = new Date(year, month - 1, 1).toISOString();
+            const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
+            const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            const doc = new jsPDF();
+
+            // Header
+            doc.setFontSize(18);
+            doc.text(`Financial Report - ${monthName}`, 14, 20);
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26);
+
+            // Fetch Data
+            const { data: reportBills } = await supabase
+                .from('bills')
+                .select('*, bill_items(*)')
+                .gte('created_at', startDate)
+                .lte('created_at', endDate)
+                .order('created_at', { ascending: true });
+
+            const { data: reportExp } = await supabase
+                .from('expenditures')
+                .select('*')
+                .gte('created_at', startDate)
+                .lte('created_at', endDate)
+                .order('created_at', { ascending: true });
+
+            let totalRevenue = 0;
+            let totalExpenditure = 0;
+
+            // Invoice Table
+            doc.setFontSize(14);
+            doc.text('1. Revenue (Invoices)', 14, 35);
+
+            const billRows = [];
+            if (reportBills && reportBills.length > 0) {
+                reportBills.forEach(bill => {
+                    totalRevenue += bill.total_amount;
+                    billRows.push([
+                        new Date(bill.created_at).toLocaleDateString(),
+                        `#${bill.invoice_number || bill.id.slice(0, 6)}`,
+                        bill.customer_name || 'Walk-in',
+                        bill.bill_items.map(i => `${i.product_name} (${i.quantity})`).join(', '),
+                        bill.payment_status || 'Paid',
+                        bill.total_amount.toFixed(2)
+                    ]);
+                });
+            }
+
+            doc.autoTable({
+                head: [['Date', 'Inv #', 'Customer', 'Items', 'Status', 'Amount']],
+                body: billRows,
+                startY: 40,
+                theme: 'striped',
+                headStyles: { fillColor: [59, 130, 246] }
+            });
+
+            // Expenditure Table
+            let finalY = doc.lastAutoTable.finalY + 15;
+            doc.setFontSize(14);
+            doc.text('2. Expenditure', 14, finalY);
+
+            const expRows = [];
+            if (reportExp && reportExp.length > 0) {
+                reportExp.forEach(ex => {
+                    totalExpenditure += ex.amount;
+                    expRows.push([
+                        new Date(ex.created_at).toLocaleDateString(),
+                        ex.item_name,
+                        ex.category || '-',
+                        ex.type,
+                        ex.amount.toFixed(2)
+                    ]);
+                });
+            } else {
+                expRows.push(['-', 'No expenditures recorded', '-', '-', '0.00']);
+            }
+
+            doc.autoTable({
+                head: [['Date', 'Description', 'Category', 'Type', 'Amount']],
+                body: expRows,
+                startY: finalY + 5,
+                theme: 'striped',
+                headStyles: { fillColor: [244, 63, 94] }
+            });
+
+            // Summary
+            finalY = doc.lastAutoTable.finalY + 20;
+            if (finalY > 250) { doc.addPage(); finalY = 20; }
+
+            // Calculate COGS for this period
+            let totalCOGS = 0;
+            if (reportBills && reportBills.length > 0) {
+                reportBills.forEach(bill => {
+                    if (bill.bill_items) {
+                        bill.bill_items.forEach(item => {
+                            totalCOGS += (item.cost_at_sale || 0) * (item.quantity || 1);
+                        });
+                    }
+                });
+            }
+
+            const grossProfit = totalRevenue - totalCOGS;
+            const netProfit = grossProfit - totalExpenditure;
+
+            doc.setDrawColor(200);
+            doc.setFillColor(248, 250, 252);
+            doc.roundedRect(14, finalY, 180, 70, 3, 3, 'FD');
+
+            doc.setFontSize(16);
+            doc.setTextColor(30, 41, 59);
+            doc.text('Financial Summary', 20, finalY + 12);
+
+            doc.setFontSize(11);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Total Revenue:`, 20, finalY + 25);
+            doc.text(`Cost of Goods Sold (COGS):`, 20, finalY + 32);
+            doc.text(`Gross Profit:`, 20, finalY + 39);
+            doc.text(`Total Expenditure:`, 20, finalY + 46);
+
+            doc.text(`${totalRevenue.toFixed(2)}`, 150, finalY + 25, { align: 'right' });
+            doc.text(`(${totalCOGS.toFixed(2)})`, 150, finalY + 32, { align: 'right' });
+            doc.text(`${grossProfit.toFixed(2)}`, 150, finalY + 39, { align: 'right' });
+            doc.text(`(${totalExpenditure.toFixed(2)})`, 150, finalY + 46, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.line(20, finalY + 52, 180, finalY + 52);
+
+            doc.setFontSize(14);
+            doc.setTextColor(30, 41, 59);
+            doc.text(`Net Profit / Loss:`, 20, finalY + 62);
+
+            if (netProfit >= 0) doc.setTextColor(16, 185, 129); else doc.setTextColor(244, 63, 94);
+            doc.text(`${netProfit.toFixed(2)}`, 150, finalY + 62, { align: 'right' });
+
+            doc.save(`Financial_Report_${monthName.replace(' ', '_')}.pdf`);
+        });
+    }
+
     // Fetch Analytics Data
     const today = new Date().toISOString().split('T')[0];
     const { data: todayBills } = await supabase
@@ -99,6 +323,27 @@ export async function initAnalytics(container) {
     const { data: allBills } = await supabase.from('bills').select('total_amount');
     const totalRev = allBills?.reduce((sum, b) => sum + b.total_amount, 0) || 0;
     container.querySelector('#total-revenue').textContent = `₹${totalRev.toLocaleString()}`;
+
+    // Total Expenditure (All Time)
+    const { data: allExp } = await supabase.from('expenditures').select('amount');
+    const totalExp = allExp?.reduce((sum, e) => sum + e.amount, 0) || 0;
+    container.querySelector('#total-expenditure').textContent = `₹${totalExp.toLocaleString()}`;
+
+    // Calculate COGS (Cost of Goods Sold)
+    // We need to fetch all bill items to sum their costs
+    const { data: allItems } = await supabase.from('bill_items').select('cost_at_sale, quantity');
+    const totalCOGS = allItems?.reduce((sum, item) => sum + ((item.cost_at_sale || 0) * (item.quantity || 1)), 0) || 0;
+
+    // Net Profit = (Revenue - COGS) - Expenditure
+    const netProfit = (totalRev - totalCOGS) - totalExp;
+
+    const profitEl = container.querySelector('#net-profit');
+    profitEl.textContent = `₹${netProfit.toLocaleString()}`;
+    if (netProfit < 0) profitEl.className = 'text-2xl font-bold text-rose-400';
+    else profitEl.className = 'text-2xl font-bold text-emerald-400';
+
+    // Add tooltip for transparency
+    profitEl.parentElement.setAttribute('title', `Rev: ${totalRev} - Cost: ${totalCOGS} - Exp: ${totalExp}`);
 
     // Monthly (Rough estimate using logic or fetch)
     const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -186,68 +431,4 @@ export async function initAnalytics(container) {
             <td class="py-3 text-right text-slate-500 text-xs">${new Date(b.created_at).toLocaleDateString()}</td>
         </tr>
     `).join('') || '';
-
-    // Monthly Report PDF Generation
-    const btn = container.querySelector('#download-month-report');
-    if (btn) {
-        btn.addEventListener('click', async () => {
-            const dateInput = container.querySelector('#report-month-picker').value; // yyyy-mm
-            const [year, month] = dateInput.split('-');
-            const startDate = new Date(year, month - 1, 1).toISOString();
-            const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
-            const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-
-            const doc = new jsPDF();
-            doc.text(`Monthly Sales Report - ${monthName}`, 14, 20);
-
-            // Fetch detailed data for month
-            const { data: reportBills } = await supabase
-                .from('bills')
-                .select('*, bill_items(*)')
-                .gte('created_at', startDate)
-                .lte('created_at', endDate)
-                .order('created_at', { ascending: true });
-
-            if (!reportBills || reportBills.length === 0) {
-                alert('No data for this month');
-                return;
-            }
-
-            const tableRows = [];
-            let totalSales = 0;
-            let totalGST = 0;
-
-            reportBills.forEach(bill => {
-                const date = new Date(bill.created_at).toLocaleDateString();
-                const items = bill.bill_items.map(i => `${i.product_name} (${i.quantity})`).join(', ');
-                const gstAmt = bill.gst_applied ? (bill.total_amount * 0.18 / 1.18) : 0;
-                // Note: Logic above assumes 18% included. If using split GST, might vary, but approx ok for summary.
-
-                totalSales += bill.total_amount;
-                if (bill.gst_applied) totalGST += gstAmt;
-
-                tableRows.push([
-                    date,
-                    bill.customer_name || 'Walk-in',
-                    items,
-                    bill.gst_applied ? 'Yes' : 'No',
-                    bill.payment_status || 'Paid',
-                    bill.total_amount.toFixed(2)
-                ]);
-            });
-
-            doc.autoTable({
-                head: [['Date', 'Customer', 'Items', 'GST', 'Status', 'Amount']],
-                body: tableRows,
-                startY: 30,
-            });
-
-            const finalY = doc.lastAutoTable.finalY + 10;
-            doc.setFontSize(11);
-            doc.text(`Total Sales: ${totalSales.toFixed(2)}`, 14, finalY);
-            doc.text(`Total Transactions: ${reportBills.length}`, 14, finalY + 6);
-
-            doc.save(`Monthly_Report_${monthName.replace(' ', '_')}.pdf`);
-        });
-    }
 }
