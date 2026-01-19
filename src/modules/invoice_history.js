@@ -330,7 +330,7 @@ export async function initInvoiceHistory(container) {
         if (currentActiveBill) {
             hidePopup();
             const adminPass = prompt("Enter Developer Password to DELETE:");
-            if (adminPass !== "Jayasan@9045") {
+            if (adminPass !== "admin123") {
                 alert("Incorrect Password! Access Denied.");
                 return;
             }
