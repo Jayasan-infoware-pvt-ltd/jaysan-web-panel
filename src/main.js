@@ -6,7 +6,10 @@ import { initInvoiceHistory } from './modules/invoice_history.js'
 import { initRepairs } from './modules/repairs.js'
 import { initRepairHistory } from './modules/repair_history.js'
 import { initExpenditure } from './modules/expenditure.js'
+import { initQueries } from './modules/queries.js'
+
 import { initAnalytics } from './modules/analytics.js'
+import { initBackup } from './modules/backup.js'
 import { checkAuth, renderLogin } from './modules/auth.js'
 
 const app = document.querySelector('#app')
@@ -69,7 +72,7 @@ function navigateTo(view) {
 
     switch (view) {
         case 'dashboard':
-            initAnalytics(main);
+            initAnalytics(main, navigateTo);
             break;
         case 'stock':
             initStock(main);
@@ -88,6 +91,12 @@ function navigateTo(view) {
             break;
         case 'expenditure':
             initExpenditure(main);
+            break;
+        case 'queries':
+            initQueries(main);
+            break;
+        case 'backup':
+            initBackup(main);
             break;
         default:
             main.innerHTML = '<h1 class="text-2xl">Page Not Found</h1>';
