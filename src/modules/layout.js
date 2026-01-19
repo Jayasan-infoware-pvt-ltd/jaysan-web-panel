@@ -10,9 +10,11 @@ export function renderSidebar(container, navigateCallback) {
         { id: 'stock', label: 'Stock Management', icon: 'box' },
         { id: 'billing', label: 'New Invoice', icon: 'receipt' },
         { id: 'invoices', label: 'Invoice History', icon: 'file-text' },
-        { id: 'expenditure', label: 'Expenditure', icon: 'wallet' }, // New
+        { id: 'expenditure', label: 'Expenditure', icon: 'wallet' },
+        { id: 'queries', label: 'Customer Queries', icon: 'message-circle' },
         { id: 'repairs', label: 'Repair Board', icon: 'wrench' },
-        { id: 'repair-history', label: 'All Repairs List', icon: 'clipboard-list' }, // New
+        { id: 'repair-history', label: 'All Repairs List', icon: 'clipboard-list' },
+        { id: 'backup', label: 'Backup & Restore', icon: 'database' },
     ];
 
     container.innerHTML = `
@@ -75,4 +77,3 @@ export function renderSidebar(container, navigateCallback) {
     const defaultBtn = container.querySelector('[data-view="dashboard"]');
     if (defaultBtn) defaultBtn.click();
 }
-
