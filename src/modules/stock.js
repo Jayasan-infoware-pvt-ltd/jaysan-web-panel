@@ -1,6 +1,5 @@
 import { supabase } from '../supabase.js';
-// Added 'X' to imports for the close button in the View Modal
-import { Plus, Search, Edit2, Trash2, Download, MoreVertical, Eye, X } from 'lucide';
+import { Plus, Search, Edit2, Trash2, Download, MoreVertical, Eye, Image as ImageIcon, Upload, X, ChevronLeft, ChevronRight } from 'lucide';
 
 export async function initStock(container) {
     container.innerHTML = `
@@ -17,10 +16,16 @@ export async function initStock(container) {
                 </div>
             </div>
 
-            <div class="card p-4">
-                <div class="relative">
+            <div class="card p-4 flex gap-4">
+                <div class="relative flex-1">
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none"></i>
                     <input type="text" id="search-stock" placeholder="Search products..." class="input-field pl-12" />
+                </div>
+                <div class="w-48">
+                    <select id="filter-category" class="input-field cursor-pointer">
+                        <option value="">All Categories</option>
+                        <!-- Dynamic Options populated later -->
+                    </select>
                 </div>
             </div>
 
@@ -28,7 +33,9 @@ export async function initStock(container) {
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-50 border-b border-slate-100 text-slate-500 text-sm uppercase tracking-wider">
+                            <th class="p-4 font-semibold w-24">Img</th>
                             <th class="p-4 font-semibold">Product Name</th>
+                            <th class="p-4 font-semibold">Category</th>
                             <th class="p-4 font-semibold">Price (₹)</th>
                             <th class="p-4 font-semibold">Quantity</th>
                             <th class="p-4 font-semibold">Last Updated</th>
@@ -36,7 +43,7 @@ export async function initStock(container) {
                         </tr>
                     </thead>
                     <tbody id="stock-table-body" class="text-slate-700 divide-y divide-slate-100">
-                        <tr><td colspan="4" class="p-4 text-center">Loading...</td></tr>
+                        <tr><td colspan="7" class="p-4 text-center">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -57,33 +64,46 @@ export async function initStock(container) {
             </button>
         </div>
 
-        <!-- VIEW DETAIL MODAL (From Code A) -->
-        <div id="view-modal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 class="text-lg font-bold text-slate-800">Product Details</h3>
-                    <button id="close-view-modal" class="text-slate-400 hover:text-red-500 transition-colors">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                </div>
-                <div id="view-modal-content" class="p-6 space-y-4">
-                    <!-- Injected via JS -->
-                </div>
-                <div class="px-6 py-4 bg-slate-50 text-right">
-                    <button id="close-view-modal-btn" class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors">Close</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ADD/EDIT MODAL TEMPLATE -->
+        <!-- Modal Template -->
         <div id="product-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] backdrop-blur-sm">
-            <div class="bg-white rounded-xl p-8 w-full max-w-md shadow-2xl transform transition-all scale-100 ring-1 ring-black/5">
+            <div class="bg-white rounded-xl p-8 w-full max-w-md shadow-2xl transform transition-all scale-100 ring-1 ring-black/5 max-h-[90vh] overflow-y-auto">
                 <h3 id="modal-title" class="text-xl font-bold mb-4">Add Product</h3>
                 <form id="product-form" class="space-y-4">
                     <input type="hidden" id="product-id">
+                    
+                    <!-- Multi-Image Upload -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Product Images</label>
+                        <div class="grid grid-cols-3 gap-2" id="image-gallery-preview">
+                             <!-- Preview Items -->
+                        </div>
+                        <label class="mt-2 flex items-center justify-center w-full h-12 border-2 border-dashed border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                            <i data-lucide="plus" class="w-5 h-5 text-slate-400 mr-2"></i>
+                            <span class="text-sm text-slate-500">Add Images</span>
+                            <input type="file" id="product-image-input" accept="image/*" multiple class="hidden">
+                        </label>
+                        <button type="button" id="add-image-url-btn" class="flex flex-col items-center justify-center w-full h-12 border-2 border-dashed border-slate-300 rounded-lg hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-colors">
+                            <i data-lucide="link" class="w-5 h-5 mb-1"></i>
+                            <span class="text-[10px]">Add via URL</span>
+                        </button>
+                    </div>
+                    
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
                         <input type="text" id="product-name" required class="input-field" placeholder="e.g. iPhone Screen">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Category / Tag</label>
+                        <input type="text" id="product-category" class="input-field" list="category-suggestions" placeholder="e.g. Printer, Cables, Screen...">
+                        <datalist id="category-suggestions">
+                            <option value="Printer">
+                            <option value="Toner / Cartridge">
+                            <option value="Cables">
+                            <option value="Accessories">
+                            <option value="Spare Parts">
+                            <option value="Mobile">
+                        </datalist>
                     </div>
                     
                     <div class="grid grid-cols-2 gap-4">
@@ -107,7 +127,7 @@ export async function initStock(container) {
                         </div>
                         <div class="relative">
                             <input type="number" id="product-cost" class="input-field bg-white" placeholder="Locked" disabled>
-                            <div id="cost-mask" class="absolute inset-0 bg-indigo-50/50 backdrop-blur-[2px] flex items-center justify-center text-xs text-indigo-400 font-mono">
+                            <div id="cost-mask" class="absolute inset-0 bg-indigo-100/90 backdrop-blur-md flex items-center justify-center text-xs text-indigo-400 font-mono select-none">
                                 ••••••••
                             </div>
                         </div>
@@ -147,6 +167,25 @@ export async function initStock(container) {
                 </form>
             </div>
         </div>
+
+        <!-- Lightbox -->
+        <div id="lightbox" class="fixed inset-0 z-[110] bg-black/95 hidden flex flex-col items-center justify-center backdrop-blur-md">
+             <!-- Close button with very high z-index and pointer-events -->
+             <button id="lightbox-close" class="absolute top-6 right-6 text-white hover:text-slate-300 z-[120] cursor-pointer p-2 bg-black/20 rounded-full">
+                <i data-lucide="x" class="w-8 h-8"></i>
+             </button>
+             
+             <div class="relative w-full h-full flex items-center justify-center px-12 z-[115]">
+                 <button id="lightbox-prev" class="absolute left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-[120]">
+                    <i data-lucide="chevron-left" class="w-8 h-8"></i>
+                 </button>
+                 <img id="lightbox-img" class="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl" src="" alt="Preview">
+                 <button id="lightbox-next" class="absolute right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-[120]">
+                    <i data-lucide="chevron-right" class="w-8 h-8"></i>
+                 </button>
+             </div>
+             <div id="lightbox-caption" class="absolute bottom-4 text-white/50 text-sm z-[120]"></div>
+        </div>
     `;
 
     // Re-run icons
@@ -155,31 +194,83 @@ export async function initStock(container) {
     const tbody = container.querySelector('#stock-table-body');
     const searchInput = container.querySelector('#search-stock');
     const modal = container.querySelector('#product-modal');
-    const viewModal = container.querySelector('#view-modal');
-    const viewModalContent = container.querySelector('#view-modal-content');
     const form = container.querySelector('#product-form');
+    const imageInput = container.querySelector('#product-image-input');
+    const galleryPreview = container.querySelector('#image-gallery-preview');
+
+    // Lightbox
+    const lightbox = container.querySelector('#lightbox');
+    const lbImg = container.querySelector('#lightbox-img');
+    const lbPrev = container.querySelector('#lightbox-prev');
+    const lbNext = container.querySelector('#lightbox-next');
+    const lbClose = container.querySelector('#lightbox-close');
+
     let products = [];
+    let currentUploadFiles = []; // Files explicitly selected to upload
+    let currentExistingImages = []; // URLs of images already saved
+    let initialExistingImages = []; // To track deletions
+
+    let lightboxImages = [];
+    let lightboxIndex = 0;
 
     // Fetch Data
     async function fetchProducts() {
         const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
         if (error) {
             console.error('Error fetching products:', error);
-            tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Error loading stock</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Error loading stock</td></tr>`;
             return;
         }
         products = data;
+        updateCategoryDropdown();
         renderTable(products);
+    }
+
+    // Helper: Parse Image URLs
+    function getImages(imgString) {
+        if (!imgString) return [];
+        return imgString.split(',').filter(s => s.trim().length > 0);
+    }
+
+    function getCategoryColor(cat) {
+        const colors = {
+            'Printer': 'bg-orange-100 text-orange-800',
+            'Toner / Cartridge': 'bg-cyan-100 text-cyan-800',
+            'Cables': 'bg-gray-100 text-gray-800',
+            'Accessories': 'bg-purple-100 text-purple-800',
+            'Spare Parts': 'bg-indigo-100 text-indigo-800',
+            'Mobile': 'bg-pink-100 text-pink-800',
+            'General': 'bg-blue-100 text-blue-800'
+        };
+        return colors[cat] || 'bg-emerald-100 text-emerald-800'; // Default fallback
     }
 
     function renderTable(items) {
         if (items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">No products found</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No products found</td></tr>`;
             return;
         }
-        tbody.innerHTML = items.map(p => `
+        tbody.innerHTML = items.map(p => {
+            const images = getImages(p.image_url);
+            const thumb = images.length > 0 ? images[0] : null;
+
+            return `
             <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-4">
+                    ${thumb ?
+                    `<div class="relative w-12 h-12 group cursor-zoom-in img-preview-trigger" data-id="${p.id}">
+                             <img src="${thumb}" class="w-12 h-12 rounded-lg object-cover border border-slate-200" alt="${p.name}">
+                             ${images.length > 1 ? `<span class="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1 rounded-bl-sm rounded-tr-sm">+${images.length - 1}</span>` : ''}
+                        </div>` :
+                    `<div class="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><i data-lucide="image" class="w-5 h-5"></i></div>`
+                }
+                </td>
                 <td class="p-4 font-medium text-slate-900">${p.name}</td>
+                <td class="p-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(p.category)}">
+                        ${p.category || 'General'}
+                    </span>
+                </td>
                 <td class="p-4">₹${p.price}</td>
                 <td class="p-4">
                     <span class="${p.quantity < 5 ? 'text-red-600 font-bold' : 'text-green-600'}">
@@ -195,11 +286,45 @@ export async function initStock(container) {
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
 
         if (window.lucide) window.lucide.createIcons();
         attachRowListeners();
     }
+
+    function openLightbox(images, index = 0) {
+        lightboxImages = images;
+        lightboxIndex = index;
+        updateLightbox();
+        lightbox.classList.remove('hidden');
+    }
+
+    function updateLightbox() {
+        if (lightboxImages.length === 0) return;
+        lbImg.src = lightboxImages[lightboxIndex];
+        container.querySelector('#lightbox-caption').textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+    }
+
+    lbClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        lightbox.classList.add('hidden');
+    });
+
+    // Also close on background click
+    lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) lightbox.classList.add('hidden');
+    });
+
+    lbPrev.addEventListener('click', () => {
+        lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+        updateLightbox();
+    });
+    lbNext.addEventListener('click', () => {
+        lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+        updateLightbox();
+    });
+
 
     // Popup Elements
     const popupMenu = container.querySelector('#stock-action-menu');
@@ -225,6 +350,15 @@ export async function initStock(container) {
     });
 
     function attachRowListeners() {
+        // Thumbnail Click
+        tbody.querySelectorAll('.img-preview-trigger').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const id = el.dataset.id;
+                const p = products.find(prod => prod.id === id);
+                if (p) openLightbox(getImages(p.image_url));
+            });
+        });
+
         // Row Menu Triggers
         tbody.querySelectorAll('.menu-trigger').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -234,31 +368,27 @@ export async function initStock(container) {
             });
         });
 
-        // View Button -> Opens the NEW View Modal (Clean Design)
+        // View Button
         const oldViewBtn = container.querySelector('#stock-popup-view');
         const newViewBtn = oldViewBtn.cloneNode(true);
         oldViewBtn.replaceWith(newViewBtn);
         newViewBtn.addEventListener('click', () => {
             if (currentActiveId) {
                 const product = products.find(p => p.id === currentActiveId);
-                if (product) {
-                    hidePopup();
-                    openViewModal(product); // Calls the new specific function
-                }
+                if (product) openModal(false, product, true); // View Mode
+                hidePopup();
             }
         });
 
-        // Edit Button -> Opens the Form Modal
+        // Edit Button
         const oldEditBtn = container.querySelector('#stock-popup-edit');
         const newEditBtn = oldEditBtn.cloneNode(true);
         oldEditBtn.replaceWith(newEditBtn);
         newEditBtn.addEventListener('click', () => {
             if (currentActiveId) {
                 const product = products.find(p => p.id === currentActiveId);
-                if (product) {
-                    hidePopup();
-                    openModal(true, product); // Edit Mode
-                }
+                if (product) openModal(true, product); // Edit Mode
+                hidePopup();
             }
         });
 
@@ -286,80 +416,47 @@ export async function initStock(container) {
         });
     }
 
-    // Search
-    searchInput.addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase();
-        const filtered = products.filter(p => p.name.toLowerCase().includes(term));
+    // Search & Filter Logic
+    function applyFilters() {
+        const term = searchInput.value.toLowerCase();
+        const cat = container.querySelector('#filter-category').value;
+
+        console.log(`Filtering Stock - Term: "${term}", Category: "${cat}"`);
+
+        const filtered = products.filter(p => {
+            const matchesSearch = p.name.toLowerCase().includes(term);
+            // Handle null/undefined category as 'General' and strict compare
+            const prodCat = p.category || 'General';
+            const matchesCat = cat === '' || prodCat === cat;
+            return matchesSearch && matchesCat;
+        });
         renderTable(filtered);
-    });
-
-        // ==========================================
-    // VIEW DETAIL MODAL LOGIC (Updated with Courier Charges)
-    // ==========================================
-    function openViewModal(product) {
-        let serialsHtml = '<span class="text-slate-400 italic">No serials recorded.</span>';
-        if (product.serial_number) {
-            const serials = product.serial_number.split(',');
-            serialsHtml = `<div class="flex flex-wrap gap-2">` + 
-                serials.map(s => `<span class="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded border border-slate-200 font-mono">${s}</span>`).join('') +
-                `</div>`;
-        }
-
-        viewModalContent.innerHTML = `
-            <div class="space-y-4">
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Product Name</label>
-                    <div class="text-lg font-bold text-slate-800">${product.name}</div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-xs font-bold text-slate-400 uppercase">Price</label>
-                        <div class="text-slate-800">₹${product.price}</div>
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-400 uppercase">In Stock</label>
-                        <div class="${product.quantity < 5 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}">${product.quantity}</div>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-xs font-bold text-slate-400 uppercase">Vendor</label>
-                        <div class="text-slate-800">${product.vendor_name || '-'}</div>
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-400 uppercase">Location</label>
-                        <div class="text-slate-800">${product.location_from || '-'}</div>
-                    </div>
-                </div>
-                
-                <!-- COURIER CHARGES ADDED HERE -->
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Courier Charges</label>
-                    <div class="text-slate-800">₹${product.courier_charges || 0}</div>
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase mb-2 block">Serial Numbers</label>
-                    ${serialsHtml}
-                </div>
-
-                <div class="pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs text-slate-400">
-                     <div>Created: ${new Date(product.created_at).toLocaleDateString()}</div>
-                     <div>Updated: ${product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}</div>
-                </div>
-            </div>
-        `;
-        viewModal.classList.remove('hidden');
     }
 
-    // Close View Modal Events
-    container.querySelector('#close-view-modal').addEventListener('click', () => viewModal.classList.add('hidden'));
-    container.querySelector('#close-view-modal-btn').addEventListener('click', () => viewModal.classList.add('hidden'));
-    viewModal.addEventListener('click', (e) => { if (e.target === viewModal) viewModal.classList.add('hidden'); });
+    searchInput.addEventListener('input', applyFilters);
 
-    // ==========================================
-    // ADD/EDIT FORM LOGIC
-    // ==========================================
+    container.querySelector('#filter-category').addEventListener('change', applyFilters);
+
+    function updateCategoryDropdown() {
+        // Collect unique categories
+        // Normalize nulls to 'General'
+        const cats = new Set(products.map(p => p.category || 'General'));
+        const select = container.querySelector('#filter-category');
+        const currentVal = select.value;
+
+        // Sort alphabetically
+        const sortedCats = Array.from(cats).sort((a, b) => a.localeCompare(b));
+
+        select.innerHTML = '<option value="">All Categories</option>' +
+            sortedCats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+        // Restore selection if it still exists, otherwise default to ""
+        if (sortedCats.includes(currentVal)) {
+            select.value = currentVal;
+        } else {
+            select.value = "";
+        }
+    }
 
     // Serials Logic
     const qtyInput = container.querySelector('#product-qty');
@@ -376,6 +473,8 @@ export async function initStock(container) {
         const valuesToUse = existingSerials.length > 0 ? existingSerials : currentValues;
 
         let html = '';
+        currentValues.forEach((val, i) => { if (i < count && !existingSerials.length) valuesToUse[i] = val; });
+
         for (let i = 0; i < count; i++) {
             const val = valuesToUse[i] || '';
             html += `
@@ -411,28 +510,166 @@ export async function initStock(container) {
         }
     });
 
-    // Modal Logic (Strictly Add/Edit)
-    const openModal = (isEdit = false, data = null) => {
-        const title = isEdit ? 'Edit Product' : 'Add Product';
+    // Image Upload Logic in Modal
+
+    function renderGallery() {
+        galleryPreview.innerHTML = '';
+
+        // Existing
+        currentExistingImages.forEach((url, i) => {
+            const div = document.createElement('div');
+            div.className = 'relative w-full h-20 rounded-lg overflow-hidden border border-slate-200 group bg-slate-100';
+            div.innerHTML = `
+                <img src="${url}" class="w-full h-full object-cover">
+                <button type="button" class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 z-20 shadow-sm transition-transform hover:scale-110" title="Remove">
+                    <i data-lucide="x" class="w-3 h-3"></i>
+                </button>
+            `;
+            // Delete existing
+            const btn = div.querySelector('button');
+            if (window.lucide) window.lucide.createIcons(div); // Init icons inside this div
+
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                currentExistingImages.splice(i, 1);
+                renderGallery();
+            });
+            galleryPreview.appendChild(div);
+        });
+
+        // New Uploads
+        currentUploadFiles.forEach((file, i) => {
+            const div = document.createElement('div');
+            div.className = 'relative w-full h-20 rounded-lg overflow-hidden border border-slate-200 group bg-slate-100';
+            // We use file reader just for viewing
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="w-full h-full object-cover opacity-90">
+                    <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white bg-black/20 pointer-events-none">NEW</div>
+                    <button type="button" class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 z-20 shadow-sm transition-transform hover:scale-110" title="Remove">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                `;
+                if (window.lucide) window.lucide.createIcons(div);
+
+                const btn = div.querySelector('button');
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    currentUploadFiles.splice(i, 1);
+                    renderGallery();
+                });
+            };
+            reader.readAsDataURL(file);
+            galleryPreview.appendChild(div);
+        });
+    }
+
+    imageInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        currentUploadFiles = [...currentUploadFiles, ...files];
+        renderGallery();
+        imageInput.value = ''; // reset so same files can be selected again
+        imageInput.value = ''; // reset so same files can be selected again
+    });
+
+    // Add Image via URL
+    container.querySelector('#add-image-url-btn').addEventListener('click', () => {
+        const url = prompt("Paste Image URL (e.g., from Imgur, Google Photos, etc.):");
+        if (url && url.trim().length > 0) {
+            // Basic validation or just trust user? Trust user for now, maybe check http
+            if (!url.startsWith('http')) {
+                alert('Please enter a valid URL starting with http:// or https://');
+                return;
+            }
+            currentExistingImages.push(url.trim());
+            renderGallery();
+        }
+    });
+
+
+    // Modal Logic
+    const openModal = (isEdit = false, data = null, isView = false) => {
+        const title = isView ? 'Product Details' : (isEdit ? 'Edit Product' : 'Add Product');
         document.querySelector('#modal-title').textContent = title;
 
-        document.querySelector('#product-id').value = isEdit ? data.id : '';
-        document.querySelector('#product-name').value = isEdit ? data.name : '';
-        document.querySelector('#product-price').value = isEdit ? data.price : '';
-        document.querySelector('#product-qty').value = isEdit ? data.quantity : '';
+        document.querySelector('#product-id').value = isEdit || isView ? data.id : '';
+        document.querySelector('#product-name').value = isEdit || isView ? data.name : '';
+        document.querySelector('#product-category').value = isEdit || isView ? data.category || '' : '';
+        document.querySelector('#product-price').value = isEdit || isView ? data.price : '';
+        document.querySelector('#product-qty').value = isEdit || isView ? data.quantity : '';
 
         // Cost Price Handling (Secure)
-        costInput.value = isEdit ? data.cost_price || 0 : 0;
+        costInput.value = isEdit || isView ? data.cost_price || 0 : 0;
         costInput.disabled = true; // Always start disabled/locked
         costMask.classList.remove('hidden');
         unlockBtn.classList.remove('hidden');
 
-        document.querySelector('#product-vendor').value = isEdit ? data.vendor_name || '' : '';
-        document.querySelector('#product-location').value = isEdit ? data.location_from || '' : '';
-        document.querySelector('#product-courier').value = isEdit ? data.courier_charges || 0 : '';
+        document.querySelector('#product-vendor').value = isEdit || isView ? data.vendor_name || '' : '';
+        document.querySelector('#product-location').value = isEdit || isView ? data.location_from || '' : '';
+        document.querySelector('#product-courier').value = isEdit || isView ? data.courier_charges || 0 : '';
 
-        const serials = (isEdit && data.serial_number) ? data.serial_number.split(',') : [];
-        renderSerialInputs(isEdit ? data.quantity : 0, serials);
+        // Images Init
+        currentUploadFiles = [];
+        const existingDataImages = (isEdit || isView) ? getImages(data.image_url) : [];
+        currentExistingImages = [...existingDataImages];
+        initialExistingImages = [...existingDataImages]; // Snapshot for deletion logic
+
+        renderGallery();
+
+        // View Mode Specifics: Disable/Enable fields
+        const allInteractables = form.querySelectorAll('input, select, textarea, button:not(#cancel-modal)');
+        const saveBtn = container.querySelector('#save-product-btn');
+        const cancelBtn = container.querySelector('#cancel-modal');
+        const imageAddArea = container.querySelector('#product-image-input').parentElement; // The label wrapper
+        const addUrlBtn = container.querySelector('#add-image-url-btn');
+
+        if (isView) {
+            allInteractables.forEach(i => {
+                i.disabled = true;
+                if (i.tagName === 'INPUT' || i.tagName === 'TEXTAREA' || i.tagName === 'SELECT') {
+                    i.classList.add('bg-slate-100', 'text-slate-500');
+                }
+            });
+            if (saveBtn) saveBtn.classList.add('hidden');
+            if (cancelBtn) cancelBtn.textContent = 'Close';
+
+            // Hide Image Upload Controls
+            if (imageAddArea) imageAddArea.classList.add('hidden');
+            if (addUrlBtn) addUrlBtn.classList.add('hidden');
+
+            // Hide remove buttons on images
+            galleryPreview.querySelectorAll('button').forEach(b => b.classList.add('hidden'));
+
+        } else {
+            allInteractables.forEach(i => {
+                i.disabled = false;
+                if (i.tagName === 'INPUT' || i.tagName === 'TEXTAREA' || i.tagName === 'SELECT') {
+                    i.classList.remove('bg-slate-100', 'text-slate-500');
+                }
+            });
+            if (saveBtn) saveBtn.classList.remove('hidden');
+            if (cancelBtn) cancelBtn.textContent = 'Cancel';
+
+            if (imageAddArea) imageAddArea.classList.remove('hidden');
+            if (addUrlBtn) addUrlBtn.classList.remove('hidden');
+
+            // Show remove buttons
+            galleryPreview.querySelectorAll('button').forEach(b => b.classList.remove('hidden'));
+        }
+
+        const serials = ((isEdit || isView) && data.serial_number) ? data.serial_number.split(',') : [];
+        renderSerialInputs((isEdit || isView) ? data.quantity : 0, serials);
+
+        // Disable serial inputs if view mode
+        if (isView) {
+            container.querySelectorAll('.serial-input').forEach(i => {
+                i.disabled = true;
+                i.classList.add('bg-slate-100');
+            });
+        }
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -442,6 +679,9 @@ export async function initStock(container) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         form.reset();
+        currentUploadFiles = [];
+        currentExistingImages = [];
+        initialExistingImages = [];
 
         // Reset Security
         costInput.disabled = true;
@@ -455,38 +695,89 @@ export async function initStock(container) {
     // Add/Edit Submit
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const saveBtn = container.querySelector('#save-product-btn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = 'Saving...';
+
         const id = document.querySelector('#product-id').value;
         const name = document.querySelector('#product-name').value;
+        const category = document.querySelector('#product-category').value.trim() || 'General';
         const serialInputs = container.querySelectorAll('.serial-input');
         const serial_number = Array.from(serialInputs).map(i => i.value).filter(v => v.trim() !== '').join(',');
 
         const price = parseFloat(document.querySelector('#product-price').value) || 0;
-        const cost_price = parseFloat(costInput.value) || 0; 
+        const cost_price = parseFloat(costInput.value) || 0; // Capture Cost
         const quantity = parseInt(document.querySelector('#product-qty').value) || 0;
         const vendor_name = document.querySelector('#product-vendor').value;
         const location_from = document.querySelector('#product-location').value;
         const courier_charges = parseFloat(document.querySelector('#product-courier').value) || 0;
 
-        let payload = { name, serial_number, price, cost_price, quantity, vendor_name, location_from, courier_charges };
+        try {
+            // 0. Handle Image Deletions (Files)
+            if (id && initialExistingImages.length > 0) {
+                const deletedImages = initialExistingImages.filter(img => !currentExistingImages.includes(img));
+                if (deletedImages.length > 0) {
+                    console.log('Deleting images:', deletedImages);
+                    // Extract file paths from URLs
+                    // URL format: .../storage/v1/object/public/product-images/filename
+                    const paths = deletedImages.map(url => {
+                        const parts = url.split('/product-images/');
+                        return parts.length > 1 ? parts[1] : null;
+                    }).filter(p => p !== null);
 
-        if (!name) { alert('Name is required'); return; }
+                    if (paths.length > 0) {
+                        const { error: delErr } = await supabase.storage.from('product-images').remove(paths);
+                        if (delErr) console.error('Error deleting files:', delErr);
+                    }
+                }
+            }
 
-        let error;
-        if (id) {
-            payload.updated_at = new Date().toISOString();
-            const { error: err } = await supabase.from('products').update(payload).eq('id', id);
-            error = err;
-        } else {
-            const { error: err } = await supabase.from('products').insert([payload]);
-            error = err;
-        }
+            // 1. Upload new files
+            const uploadedUrls = [];
+            for (const file of currentUploadFiles) {
+                const fileName = `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
 
-        if (error) {
-            console.error('Save error:', error);
-            alert('Failed to save product: ' + error.message);
-        } else {
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('product-images')
+                    .upload(fileName, file);
+
+                if (uploadError) throw uploadError;
+
+                const { data: publicUrlData } = supabase.storage
+                    .from('product-images')
+                    .getPublicUrl(fileName);
+
+                uploadedUrls.push(publicUrlData.publicUrl);
+            }
+
+            // 2. Combine with kept existing images
+            const finalImageString = [...currentExistingImages, ...uploadedUrls].join(',');
+
+            let payload = { name, category, serial_number, price, cost_price, quantity, vendor_name, location_from, courier_charges, image_url: finalImageString };
+
+            if (!name) throw new Error('Name is required');
+
+            let error;
+            if (id) {
+                payload.updated_at = new Date().toISOString();
+                const { error: err } = await supabase.from('products').update(payload).eq('id', id);
+                error = err;
+            } else {
+                const { error: err } = await supabase.from('products').insert([payload]);
+                error = err;
+            }
+
+            if (error) throw error;
+
             fetchProducts();
             closeModal();
+
+        } catch (err) {
+            console.error('Save error:', err);
+            alert('Failed to save product: ' + err.message);
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = 'Save Product';
         }
     });
 
@@ -494,15 +785,16 @@ export async function initStock(container) {
     container.querySelector('#export-stock-btn').addEventListener('click', () => {
         if (products.length === 0) return;
 
-        let csv = "ID,Name,Price,Quantity,Vendor,Location,Courier Charges,Serials,Created At\n";
+        let csv = "ID,Name,Price,Quantity,Vendor,Location,Courier Charges,Serials,Created At,Image URLs\n";
 
         csv += products.map(p => {
             const safeName = (p.name || '').replace(/,/g, ' ');
             const safeVendor = (p.vendor_name || '').replace(/,/g, ' ');
             const safeLoc = (p.location_from || '').replace(/,/g, ' ');
-            const safeSerials = (p.serial_number || '').replace(/,/g, ';'); 
+            const safeSerials = (p.serial_number || '').replace(/,/g, ';');
+            const safeImages = (p.image_url || '').replace(/,/g, ';');
 
-            return `${p.id},${safeName},${p.price},${p.quantity},${safeVendor},${safeLoc},${p.courier_charges || 0},${safeSerials},${new Date(p.created_at).toLocaleDateString()}`;
+            return `${p.id},${safeName},${p.price},${p.quantity},${safeVendor},${safeLoc},${p.courier_charges || 0},${safeSerials},${new Date(p.created_at).toLocaleDateString()},${safeImages}`;
         }).join("\n");
 
         const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
