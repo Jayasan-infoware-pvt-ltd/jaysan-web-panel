@@ -337,7 +337,8 @@ export async function initBilling(container) {
             isManual: false,
             serial: fetchedSerial,
             problem: '',
-            part_name: ''
+            part_name: '',
+            cost: selectedProduct.cost_price || 0 // Pass Cost Price
         });
 
         selectedProduct = null;
@@ -521,6 +522,7 @@ export async function initBilling(container) {
             product_name: item.name,
             quantity: item.qty,
             price_at_sale: item.price,
+            cost_at_sale: item.cost || 0, // CAPTURE COST BASIS
             serial_number: item.serial || null
         }));
 
