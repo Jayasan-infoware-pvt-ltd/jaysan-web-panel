@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { Plus, Search, Trash2, Calendar, FileText, Wallet } from 'lucide';
+import { Plus, Search, Trash2, Calendar, FileText, Wallet, Receipt, X } from 'lucide';
 
 export async function initExpenditure(container) {
     container.innerHTML = `
@@ -32,11 +32,14 @@ export async function initExpenditure(container) {
                                     <span class="text-sm font-medium text-slate-700">Manual Entry</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="exp-type" value="Stock" class="text-purple-600 focus:ring-purple-500">
+                                    <input type="radio" name="exp-type" value="From Stock" class="text-purple-600 focus:ring-purple-500">
                                     <span class="text-sm font-medium text-slate-700">From Stock</span>
                                 </label>
                             </div>
                         </div>
+
+                        <!-- Hidden ID for Edit Mode -->
+                        <input type="hidden" id="exp-id">
 
                         <div id="manual-input-group">
                             <label class="label">Item / Description</label>
@@ -119,11 +122,123 @@ export async function initExpenditure(container) {
                 </div>
             </div>
         </div>
+
+        <!-- GLOBAL FLOATING POPUP MENU EXPENDITURE -->
+        <div id="exp-action-menu" class="hidden fixed z-[60] bg-white rounded-lg shadow-xl border border-slate-100 w-40 py-1 animate-in fade-in zoom-in-95 duration-100">
+            <button id="exp-popup-view" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                <i data-lucide="eye" class="w-4 h-4"></i> View Detail
+            </button>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button id="exp-popup-edit" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                <i data-lucide="edit-2" class="w-4 h-4"></i> Edit
+            </button>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button id="exp-popup-delete" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
+            </button>
+        </div>
+
+        <!-- DETAIL MODAL (POP SCREEN) -->
+        <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+            <div id="detail-modal-content" class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 text-white flex justify-between items-start">
+                    <div>
+                        <p class="text-xs opacity-80 uppercase tracking-wider font-semibold">Transaction Details</p>
+                        <h3 id="modal-title" class="text-xl font-bold mt-1 leading-tight">Item Name</h3>
+                        <p id="modal-date" class="text-sm opacity-90 mt-1 font-medium">Date</p>
+                    </div>
+                    <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                        <i data-lucide="receipt" class="w-6 h-6 text-white"></i>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6 space-y-5">
+                    <!-- Amount Display -->
+                    <div class="flex justify-between items-end border-b border-slate-100 pb-4">
+                        <span class="text-slate-500 font-medium text-sm">Total Amount</span>
+                        <span id="modal-amount" class="text-2xl font-bold text-slate-800">₹0.00</span>
+                    </div>
+
+                    <!-- Info Grid -->
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <p class="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Category</p>
+                            <p id="modal-category" class="font-semibold text-slate-700">-</p>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <p class="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Type</p>
+                            <span id="modal-type" class="inline-block px-2 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-700">-</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 col-span-2">
+                            <p class="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Location</p>
+                            <p id="modal-location" class="font-semibold text-slate-700 truncate">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Remarks -->
+                    <div>
+                        <p class="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Remarks</p>
+                        <div id="modal-remarks-box" class="hidden">
+                             <p id="modal-remarks" class="text-sm text-slate-600 italic bg-slate-50 p-3 rounded-lg border-l-4 border-purple-400">-</p>
+                        </div>
+                        <p id="modal-no-remarks" class="text-sm text-slate-400 italic italic opacity-60">No remarks provided.</p>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="bg-slate-50 px-6 py-4 flex justify-end border-t border-slate-100">
+                    <button id="close-modal-btn" class="px-5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
+                        <i data-lucide="x" class="w-4 h-4"></i> Close
+                    </button>
+                </div>
+            </div>
+        </div>
     `;
+
+    // Global Menu Logic
+    const popupMenu = container.querySelector('#exp-action-menu');
+    let currentActiveId = null;
+
+    function showPopup(btn, id) {
+        currentActiveId = id;
+
+        const rect = btn.getBoundingClientRect();
+        const menuHeight = 150; // Approximated height
+        const spaceBelow = window.innerHeight - rect.bottom;
+
+        popupMenu.classList.remove('hidden');
+
+        // Horizontal: Left align with button logic
+        let left = rect.right - 140;
+
+        // Vertical: Flip if not enough space
+        if (spaceBelow < menuHeight) {
+            popupMenu.style.top = `${rect.top - menuHeight}px`;
+            popupMenu.style.transformOrigin = 'bottom right';
+        } else {
+            popupMenu.style.top = `${rect.bottom + 5}px`;
+            popupMenu.style.transformOrigin = 'top right';
+        }
+
+        popupMenu.style.left = `${left}px`;
+    }
+
+    function hidePopup() {
+        popupMenu.classList.add('hidden');
+        currentActiveId = null;
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!popupMenu.contains(e.target) && !e.target.closest('.menu-trigger')) {
+            hidePopup();
+        }
+    });
 
     if (window.lucide) window.lucide.createIcons();
 
-    // Elements
+    let allExpenditures = [];
     const typeRadios = container.querySelectorAll('input[name="exp-type"]');
     const manualGroup = container.querySelector('#manual-input-group');
     const stockGroup = container.querySelector('#stock-input-group');
@@ -137,13 +252,72 @@ export async function initExpenditure(container) {
     const saveBtn = container.querySelector('#save-exp-btn');
     const tbody = container.querySelector('#exp-history-body');
 
+    // Modal Elements
+    const detailModal = container.querySelector('#detail-modal');
+    const detailModalContent = container.querySelector('#detail-modal-content');
+    const closeModalBtn = container.querySelector('#close-modal-btn');
+
+    // Modal Logic
+    function openDetailModal(data) {
+        // Populate Data
+        container.querySelector('#modal-title').textContent = data.item_name;
+        container.querySelector('#modal-date').textContent = new Date(data.created_at).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' });
+        container.querySelector('#modal-amount').textContent = `₹${parseFloat(data.amount).toFixed(2)}`;
+        container.querySelector('#modal-category').textContent = data.category || '-';
+        container.querySelector('#modal-location').textContent = data.location || '-';
+        
+        const typeSpan = container.querySelector('#modal-type');
+        typeSpan.textContent = data.type;
+        // Color coding for type
+        typeSpan.className = `inline-block px-2 py-0.5 rounded text-xs font-bold ${data.type === 'Stock' || data.type === 'From Stock' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-700'}`;
+
+        // Remarks Logic
+        if (data.remarks && data.remarks.trim() !== '') {
+            container.querySelector('#modal-remarks').textContent = data.remarks;
+            container.querySelector('#modal-remarks-box').classList.remove('hidden');
+            container.querySelector('#modal-no-remarks').classList.add('hidden');
+        } else {
+            container.querySelector('#modal-remarks-box').classList.add('hidden');
+            container.querySelector('#modal-no-remarks').classList.remove('hidden');
+        }
+
+        // Show Modal with Animation
+        detailModal.classList.remove('hidden');
+        // Trigger reflow
+        void detailModal.offsetWidth;
+        detailModal.classList.remove('opacity-0');
+        detailModalContent.classList.remove('scale-95');
+        detailModalContent.classList.add('scale-100');
+    }
+
+    function closeDetailModal() {
+        detailModal.classList.add('opacity-0');
+        detailModalContent.classList.remove('scale-100');
+        detailModalContent.classList.add('scale-95');
+        
+        setTimeout(() => {
+            detailModal.classList.add('hidden');
+        }, 300); // Wait for transition duration
+    }
+
+    // Attach Close Events
+    closeModalBtn.addEventListener('click', closeDetailModal);
+    detailModal.addEventListener('click', (e) => {
+        if (e.target === detailModal) closeDetailModal();
+    });
+    // Escape key to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !detailModal.classList.contains('hidden')) {
+            closeDetailModal();
+        }
+    });
+
     let selectedProduct = null;
     let products = [];
 
-    // --- Type Toggle ---
     typeRadios.forEach(r => {
         r.addEventListener('change', (e) => {
-            if (e.target.value === 'Stock') {
+            if (e.target.value === 'Stock' || e.target.value === 'From Stock') {
                 manualGroup.classList.add('hidden');
                 stockGroup.classList.remove('hidden');
                 // Auto fetch products if not loaded
@@ -191,10 +365,6 @@ export async function initExpenditure(container) {
                         selProdInfo.classList.remove('hidden');
                         stockSearch.value = '';
                         stockResults.classList.add('hidden');
-                        // Auto-fill amount logic? User might want to override cost.
-                        // Let's autofill based on 'price' as default cost but allow edit.
-                        // Ideally cost price should be used but we only have sale price 'price'. 
-                        // Using that for now or 0.
                         amountInput.value = selectedProduct.price || 0;
                     }
                 });
@@ -220,8 +390,10 @@ export async function initExpenditure(container) {
 
     // --- Save Logic ---
     saveBtn.addEventListener('click', async () => {
+        const id = container.querySelector('#exp-id').value;
         const type = container.querySelector('input[name="exp-type"]:checked').value;
-        const itemName = type === 'Stock' ? (selectedProduct ? selectedProduct.name : '') : descInput.value.trim();
+        const itemName = type === 'Stock' || type === 'From Stock' ? (selectedProduct ? selectedProduct.name : (id ? descInput.value : '')) : descInput.value.trim();
+
         const amount = parseFloat(amountInput.value);
         const date = container.querySelector('#exp-date').value;
         const category = container.querySelector('#exp-category').value;
@@ -235,40 +407,42 @@ export async function initExpenditure(container) {
         saveBtn.innerText = 'Saving...';
 
         try {
-            // 1. If Stock, Deduct Quantity
             if (type === 'Stock' && selectedProduct) {
-                // Check stock
                 if (selectedProduct.quantity < 1) {
                     alert("Warning: Stock is 0 or low. Proceeding anyway, count will become negative.");
                 }
-
                 const { error: stockErr } = await supabase
                     .from('products')
                     .update({ quantity: selectedProduct.quantity - 1 })
                     .eq('id', selectedProduct.id);
 
                 if (stockErr) throw stockErr;
-
-                // Update local (lazy reload next time)
                 selectedProduct.quantity -= 1;
             }
 
-            // 2. Insert Expenditure
-            const { error: insertErr } = await supabase.from('expenditures').insert({
+            const payload = {
                 item_name: itemName,
                 amount: amount,
                 type: type,
                 category: category,
                 location: location,
                 remarks: remarks,
-                product_id: type === 'Stock' ? selectedProduct?.id : null,
-                quantity: 1, // Default 1 for now
-                created_at: new Date(date).toISOString() // Approximate time handling
-            });
+                product_id: (type === 'Stock' || type === 'From Stock') ? (selectedProduct?.id || null) : null,
+                quantity: 1,
+                created_at: new Date(date).toISOString()
+            };
 
-            if (insertErr) throw insertErr;
+            let error;
+            if (id) {
+                const { error: upErr } = await supabase.from('expenditures').update(payload).eq('id', id);
+                error = upErr;
+            } else {
+                const { error: insErr } = await supabase.from('expenditures').insert(payload);
+                error = insErr;
+            }
 
-            // Reset Form (keep date)
+            if (error) throw error;
+
             descInput.value = '';
             amountInput.value = '';
             container.querySelector('#exp-location').value = '';
@@ -277,8 +451,10 @@ export async function initExpenditure(container) {
                 selectedProduct = null;
                 selProdInfo.classList.add('hidden');
             }
-            fetchExpHistory(); // Refresh table
-            alert("Expenditure saved successfully!");
+            fetchExpHistory();
+            alert(id ? "Expenditure updated!" : "Expenditure saved successfully!");
+            container.querySelector('#exp-id').value = '';
+            saveBtn.innerHTML = `<i data-lucide="wallet" class="w-4 h-4"></i> Save Expenditure`;
 
         } catch (err) {
             console.error(err);
@@ -297,13 +473,14 @@ export async function initExpenditure(container) {
             .from('expenditures')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(50); // Limit for performance
+            .limit(50);
 
         if (error) {
-            tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
             return;
         }
 
+        allExpenditures = data;
         container.querySelector('#total-exp-count').textContent = data.length;
 
         if (data.length === 0) {
@@ -319,7 +496,7 @@ export async function initExpenditure(container) {
                     ${ex.remarks ? `<div class="text-xs text-slate-400 truncate max-w-[200px]">${ex.remarks}</div>` : ''}
                 </td>
                 <td class="p-3">
-                    <span class="px-2 py-1 rounded text-xs font-bold ${ex.type === 'Stock' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}">
+                    <span class="px-2 py-1 rounded text-xs font-bold ${ex.type === 'Stock' || ex.type === 'From Stock' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}">
                         ${ex.type}
                     </span>
                 </td>
@@ -327,8 +504,8 @@ export async function initExpenditure(container) {
                 <td class="p-3 text-slate-500 text-xs uppercase">${ex.category || '-'}</td>
                 <td class="p-3 text-right font-bold text-slate-800">₹${ex.amount.toFixed(2)}</td>
                 <td class="p-3 text-center">
-                    <button class="delete-exp-btn text-slate-300 hover:text-red-500 transition-colors p-1" data-id="${ex.id}">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <button class="menu-trigger p-1 hover:bg-slate-100 rounded-full text-slate-400 transition-colors" data-id="${ex.id}">
+                        <i data-lucide="more-vertical" class="w-4 h-4"></i>
                     </button>
                 </td>
             </tr>
@@ -336,17 +513,71 @@ export async function initExpenditure(container) {
 
         if (window.lucide) window.lucide.createIcons();
 
-        // Attach Delete Listeners
-        tbody.querySelectorAll('.delete-exp-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (confirm('Delete this expenditure record? (Note: Stock will NOT be restored automatically)')) {
-                    const id = btn.dataset.id;
-                    const { error } = await supabase.from('expenditures').delete().eq('id', id);
-                    if (!error) fetchExpHistory();
-                }
+        tbody.querySelectorAll('.menu-trigger').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showPopup(btn, btn.dataset.id);
             });
         });
     }
+
+    // --- Global Menu Actions ---
+    
+    // 1. Edit Action
+    container.querySelector('#exp-popup-edit').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentActiveId) {
+            const record = allExpenditures.find(d => d.id === currentActiveId);
+            if (record) {
+                hidePopup();
+                container.querySelector('#exp-id').value = record.id;
+                container.querySelector('#exp-date').value = new Date(record.created_at).toISOString().split('T')[0];
+
+                if (record.type === 'Manual') {
+                    container.querySelector('input[value="Manual"]').click();
+                    descInput.value = record.item_name;
+                } else {
+                    const stockRadio = container.querySelector('input[value="From Stock"]') || container.querySelector('input[value="Stock"]');
+                    if (stockRadio) stockRadio.click();
+                    descInput.value = record.item_name;
+                }
+
+                amountInput.value = record.amount;
+                container.querySelector('#exp-category').value = record.category || 'Store';
+                container.querySelector('#exp-location').value = record.location || '';
+                container.querySelector('#exp-remarks').value = record.remarks || '';
+
+                saveBtn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Update Expenditure`;
+                container.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    });
+
+    // 2. Delete Action
+    container.querySelector('#exp-popup-delete').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (currentActiveId) {
+            hidePopup();
+            if (confirm('Delete this expenditure record?')) {
+                const { error } = await supabase.from('expenditures').delete().eq('id', currentActiveId);
+                if (!error) fetchExpHistory();
+                else alert(error.message);
+            }
+        }
+    });
+
+    // 3. View Action (Modified to open Modal)
+    container.querySelector('#exp-popup-view').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentActiveId) {
+            const rec = allExpenditures.find(d => d.id === currentActiveId);
+            hidePopup();
+            if (rec) {
+                // Open the custom modal instead of alert
+                openDetailModal(rec);
+            }
+        }
+    });
 
     // Init Load
     fetchExpHistory();
