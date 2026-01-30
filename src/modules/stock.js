@@ -326,20 +326,52 @@ export async function initStock(container) {
     });
 
 
-    // Popup Elements
+       // Popup Elements
     const popupMenu = container.querySelector('#stock-action-menu');
     let currentActiveId = null;
 
     function showPopup(btn, id) {
         const rect = btn.getBoundingClientRect();
         currentActiveId = id;
-        popupMenu.style.top = `${rect.bottom + 5}px`;
-        popupMenu.style.left = `${rect.right - 150}px`;
+
+        // 1. Make the menu visible but hidden to the eye so we can measure its size
         popupMenu.classList.remove('hidden');
+        popupMenu.style.visibility = 'hidden'; 
+
+        const menuHeight = popupMenu.offsetHeight;
+        const menuWidth = popupMenu.offsetWidth;
+
+        // 2. Calculate Vertical Position (Top)
+        // Default: Open below the button (rect.bottom + 5px gap)
+        let top = rect.bottom + 5;
+
+        // Check if opening below goes off the screen bottom
+        if (top + menuHeight > window.innerHeight) {
+            // Flip it to open ABOVE the button instead
+            top = rect.top - menuHeight - 5;
+        }
+
+        // 3. Calculate Horizontal Position (Left)
+        // Default: Align right edge of menu with right edge of button
+        let left = rect.right - menuWidth;
+
+        // Fallback: Ensure it doesn't go off the left edge of the screen
+        if (left < 10) {
+            left = 10; // Add some padding from the left
+        }
+
+        // 4. Apply the calculated positions
+        popupMenu.style.top = `${top}px`;
+        popupMenu.style.left = `${left}px`;
+
+        // 5. Finally, make it visible
+        popupMenu.style.visibility = 'visible';
     }
 
     function hidePopup() {
         popupMenu.classList.add('hidden');
+        // We reset visibility style so it doesn't interfere if we reuse the element
+        popupMenu.style.visibility = ''; 
         currentActiveId = null;
     }
 
