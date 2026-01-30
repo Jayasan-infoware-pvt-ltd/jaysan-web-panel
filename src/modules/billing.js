@@ -120,6 +120,39 @@ export async function initBilling(container) {
                         </div>
                     </div>
 
+                    <!-- Payment Method Section (Visible only when Status is Paid) -->
+                    <div id="payment-method-section" class="mb-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                        <label class="block text-sm font-medium text-emerald-700 mb-2">Payment Method</label>
+                        <div class="flex items-center gap-4 mb-3">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="payment-method" value="Cash" class="form-radio text-emerald-600" checked>
+                                <span class="ml-2 text-sm text-slate-700">Cash</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="payment-method" value="Online" class="form-radio text-emerald-600">
+                                <span class="ml-2 text-sm text-slate-700">Online</span>
+                            </label>
+                        </div>
+                        <!-- Cash Fields -->
+                        <div id="cash-fields" class="grid grid-cols-1 gap-2">
+                            <input type="text" id="cash-receiver" class="input-field h-9 text-sm" placeholder="Received By (Name)">
+                        </div>
+                        <!-- Online Fields -->
+                        <div id="online-fields" class="hidden">
+                            <div class="grid grid-cols-[140px_1fr] gap-2">
+                                <select id="online-platform" class="input-field h-11 text-sm leading-normal py-2">
+                                    <option value="">Select Platform</option>
+                                    <option value="GPay">GPay</option>
+                                    <option value="PhonePe">PhonePe</option>
+                                    <option value="Paytm">Paytm</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <input type="text" id="transaction-id" class="input-field h-11 text-sm" placeholder="UPI ID / Txn Ref">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex-1 overflow-y-auto custom-scrollbar">
                         <table class="w-full text-left">
                             <thead class="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0">
@@ -215,6 +248,35 @@ export async function initBilling(container) {
     const cgstRow = container.querySelector('#cgst-row');
     const sgstRow = container.querySelector('#sgst-row');
     const igstRow = container.querySelector('#igst-row');
+
+    // Payment Method Elements
+    const paymentStatusSelect = container.querySelector('#payment-status');
+    const paymentMethodSection = container.querySelector('#payment-method-section');
+    const paymentMethodRadios = container.querySelectorAll('input[name="payment-method"]');
+    const cashFields = container.querySelector('#cash-fields');
+    const onlineFields = container.querySelector('#online-fields');
+
+    // Payment Status Toggle (show/hide payment method section)
+    paymentStatusSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'Paid') {
+            paymentMethodSection.classList.remove('hidden');
+        } else {
+            paymentMethodSection.classList.add('hidden');
+        }
+    });
+
+    // Payment Method Toggle (Cash vs Online)
+    paymentMethodRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'Cash') {
+                cashFields.classList.remove('hidden');
+                onlineFields.classList.add('hidden');
+            } else {
+                cashFields.classList.add('hidden');
+                onlineFields.classList.remove('hidden');
+            }
+        });
+    });
 
     // Load Products
     const fetchProducts = async () => {
@@ -483,6 +545,22 @@ export async function initBilling(container) {
         const custPhone = container.querySelector('#bill-cust-phone').value;
         const paymentStatus = container.querySelector('#payment-status').value;
 
+        // Payment Method Details
+        let paymentMethod = null;
+        let cashReceiver = null;
+        let onlinePlatform = null;
+        let transactionId = null;
+
+        if (paymentStatus === 'Paid') {
+            paymentMethod = container.querySelector('input[name="payment-method"]:checked')?.value || 'Cash';
+            if (paymentMethod === 'Cash') {
+                cashReceiver = container.querySelector('#cash-receiver').value || null;
+            } else {
+                onlinePlatform = container.querySelector('#online-platform').value || null;
+                transactionId = container.querySelector('#transaction-id').value || null;
+            }
+        }
+
         // Recalculate Final Total
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         let total = subtotal;
@@ -499,8 +577,12 @@ export async function initBilling(container) {
             customer_phone: custPhone,
             total_amount: total,
             gst_applied: isGst,
-            gst_type: isGst ? gstType : null, // Save GST Type
-            payment_status: paymentStatus
+            gst_type: isGst ? gstType : null,
+            payment_status: paymentStatus,
+            payment_method: paymentMethod,
+            cash_receiver: cashReceiver,
+            online_platform: onlinePlatform,
+            transaction_id: transactionId
         }]).select().single();
 
         if (billError) {
@@ -706,6 +788,61 @@ export async function initBilling(container) {
             doc.setTextColor(15, 23, 42);
             doc.text("Total", xLabel, finY + 16);
             doc.text(`INR ${total.toFixed(2)}`, xRight, finY + 16, { align: 'right' });
+
+            /* =========================
+               PAYMENT METHOD
+            ========================== */
+            if (paymentStatus === 'Paid' && paymentMethod) {
+                finY += 30;
+
+                // Payment Status Badge
+                doc.setFillColor(16, 185, 129); // Emerald color
+                doc.roundedRect(14, finY - 4, 25, 8, 2, 2, 'F');
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+                doc.text("PAID", 16, finY + 1);
+
+                // Payment Method Label
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(100, 116, 139);
+                doc.text("Payment Method:", 45, finY + 1);
+
+                // Payment Details
+                doc.setTextColor(15, 23, 42);
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+
+                if (paymentMethod === 'Cash') {
+                    doc.text("Cash", 85, finY + 1);
+                    if (cashReceiver) {
+                        doc.setFont(undefined, 'normal');
+                        doc.setFontSize(9);
+                        doc.setTextColor(100, 116, 139);
+                        doc.text(`Received by: ${cashReceiver}`, 100, finY + 1);
+                    }
+                } else if (paymentMethod === 'Online') {
+                    const platform = onlinePlatform || 'Online';
+                    doc.text(platform, 85, finY + 1);
+                    if (transactionId) {
+                        doc.setFont(undefined, 'normal');
+                        doc.setFontSize(9);
+                        doc.setTextColor(100, 116, 139);
+                        doc.text(`Txn: ${transactionId}`, 85, finY + 6);
+                    }
+                }
+            } else if (paymentStatus === 'Pending') {
+                finY += 30;
+
+                // Pending Badge
+                doc.setFillColor(239, 68, 68); // Red color
+                doc.roundedRect(14, finY - 4, 35, 8, 2, 2, 'F');
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+                doc.text("PENDING", 17, finY + 1);
+            }
 
             /* =========================
                FOOTER
