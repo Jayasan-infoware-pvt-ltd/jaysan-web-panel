@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { Plus, Search, Trash2, Phone, User, MessageCircle, CheckCircle, Clock } from 'lucide';
+import { Plus, Search, Trash2, Phone, User, MessageCircle, CheckCircle, Clock, Pencil } from 'lucide';
 
 export async function initQueries(container) {
     container.innerHTML = `
@@ -66,7 +66,8 @@ export async function initQueries(container) {
         <!-- Add Modal -->
         <div id="query-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] backdrop-blur-sm">
             <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
-                <h3 class="text-xl font-bold mb-4 text-slate-800">New Customer Query</h3>
+                <h3 id="modal-title" class="text-xl font-bold mb-4 text-slate-800">New Customer Query</h3>
+                <input type="hidden" id="edit-query-id" value="">
                 <form id="query-form" class="space-y-4">
                     <div>
                         <label class="label">Customer Name</label>
@@ -144,6 +145,9 @@ export async function initQueries(container) {
                     </span>
                 </td>
                 <td class="p-4 text-right">
+                    <button class="edit-btn hover:text-blue-600 text-slate-400 mr-2 transition-colors" data-id="${q.id}" title="Edit">
+                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                    </button>
                     ${q.status !== 'Resolved' ? `
                         <button class="resolve-btn hover:text-emerald-600 text-slate-400 mr-2 transition-colors" data-id="${q.id}" title="Mark Resolved">
                             <i data-lucide="check-circle" class="w-5 h-5"></i>
@@ -171,6 +175,28 @@ export async function initQueries(container) {
     }
 
     function attachListeners() {
+        // Edit button handler
+        container.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                const query = queries.find(q => q.id === id);
+                if (query) {
+                    // Set edit mode
+                    container.querySelector('#edit-query-id').value = id;
+                    container.querySelector('#modal-title').textContent = 'Edit Customer Query';
+
+                    // Pre-fill form
+                    form.querySelector('#q-name').value = query.customer_name || '';
+                    form.querySelector('#q-phone').value = query.phone_number || '';
+                    form.querySelector('#q-req').value = query.requirement || '';
+
+                    // Open modal
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
+            });
+        });
+
         container.querySelectorAll('.resolve-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
@@ -210,6 +236,11 @@ export async function initQueries(container) {
     const closeBtn = container.querySelector('#close-modal');
 
     openBtn.addEventListener('click', () => {
+        // Reset to add mode
+        container.querySelector('#edit-query-id').value = '';
+        container.querySelector('#modal-title').textContent = 'New Customer Query';
+        form.reset();
+
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         form.querySelector('#q-name').focus();
@@ -219,6 +250,9 @@ export async function initQueries(container) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         form.reset();
+        // Reset edit mode
+        container.querySelector('#edit-query-id').value = '';
+        container.querySelector('#modal-title').textContent = 'New Customer Query';
     });
 
     form.addEventListener('submit', async (e) => {
@@ -230,13 +264,31 @@ export async function initQueries(container) {
         const name = form.querySelector('#q-name').value;
         const phone = form.querySelector('#q-phone').value;
         const req = form.querySelector('#q-req').value;
+        const editId = container.querySelector('#edit-query-id').value;
 
-        const { error } = await supabase.from('customer_queries').insert({
-            customer_name: name,
-            phone_number: phone,
-            requirement: req,
-            status: 'Pending'
-        });
+        let error;
+
+        if (editId) {
+            // Update existing query
+            const result = await supabase
+                .from('customer_queries')
+                .update({
+                    customer_name: name,
+                    phone_number: phone,
+                    requirement: req
+                })
+                .eq('id', editId);
+            error = result.error;
+        } else {
+            // Insert new query
+            const result = await supabase.from('customer_queries').insert({
+                customer_name: name,
+                phone_number: phone,
+                requirement: req,
+                status: 'Pending'
+            });
+            error = result.error;
+        }
 
         btn.disabled = false;
         btn.innerText = 'Save Query';
