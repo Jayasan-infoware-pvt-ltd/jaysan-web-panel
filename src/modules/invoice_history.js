@@ -22,6 +22,7 @@ export async function initInvoiceHistory(container) {
                                 <th class="p-4">Date</th>
                                 <th class="p-4">Customer</th>
                                 <th class="p-4 text-center">Status</th>
+                                <th class="p-4 text-center">Payment Details</th>
                                 <th class="p-4 text-right">Amount</th>
                                 <th class="p-4 text-right">Actions</th>
                             </tr>
@@ -81,20 +82,37 @@ export async function initInvoiceHistory(container) {
     const popupDeleteBtn = container.querySelector('#popup-delete');
     let currentActiveBill = null;
 
-    // --- Popup Logic ---
+    // --- Popup Logic (FIXED: Shows above if no space below) ---
     function showPopup(btn, bill) {
         const rect = btn.getBoundingClientRect();
         currentActiveBill = bill;
-        popupMenu.style.top = `${rect.bottom + 5}px`;
+        
+        // Calculate space available below the button
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const gap = 5; // 5px gap between button and menu
+        const menuHeightThreshold = 150; // Approximate height needed for the menu
+
+        // If there isn't enough space below, show it above
+        if (spaceBelow < menuHeightThreshold) {
+            // 1. Temporarily reveal the menu to get its true height
+            popupMenu.classList.remove('hidden');
+            const menuHeight = popupMenu.offsetHeight;
+            
+            // 2. Calculate top position (Above the button)
+            popupMenu.style.top = `${rect.top - menuHeight - gap}px`;
+        } else {
+            // Standard position: Below the button
+            popupMenu.style.top = `${rect.bottom + gap}px`;
+        }
+
         popupMenu.style.left = `${rect.right - 160}px`;
+        
+        // Ensure it is visible
         popupMenu.classList.remove('hidden');
     }
 
     function hidePopup() {
         popupMenu.classList.add('hidden');
-        // We do NOT reset currentActiveBill here immediately if we are inside an event, 
-        // but we rely on the local variable in the click handlers.
-        // To be safe, we usually reset it, but the handlers save it first.
         setTimeout(() => { currentActiveBill = null; }, 100);
     }
 
@@ -152,15 +170,48 @@ export async function initInvoiceHistory(container) {
                                 <option value="Paid" ${bill.payment_status === 'Paid' ? 'selected' : ''}>Paid</option>
                                 <option value="Pending" ${bill.payment_status === 'Pending' ? 'selected' : ''}>Pending</option>
                             </select>
-                            <button id="update-status-btn" class="p-1 text-slate-400 hover:text-blue-600 transition-colors" title="Update Status">
-                                <i data-lucide="save" class="w-4 h-4"></i>
-                            </button>
                         </div>
                     </div>
                     <div class="text-right">
                         <label class="text-xs font-bold text-slate-400 uppercase">Total Amount</label>
                         <div class="text-2xl font-bold text-slate-900">₹${bill.total_amount.toFixed(2)}</div>
                     </div>
+                </div>
+
+                <!-- Editable Payment Method Section -->
+                <div id="modal-payment-section" class="col-span-2 mb-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200 ${bill.payment_status !== 'Paid' ? 'hidden' : ''}">
+                    <label class="block text-sm font-medium text-emerald-700 mb-2">Payment Method</label>
+                    <div class="flex items-center gap-4 mb-3">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="modal-payment-method" value="Cash" class="form-radio text-emerald-600" ${!bill.payment_method || bill.payment_method === 'Cash' ? 'checked' : ''}>
+                            <span class="ml-2 text-sm text-slate-700">Cash</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="modal-payment-method" value="Online" class="form-radio text-emerald-600" ${bill.payment_method === 'Online' ? 'checked' : ''}>
+                            <span class="ml-2 text-sm text-slate-700">Online</span>
+                        </label>
+                    </div>
+                    <!-- Cash Fields -->
+                    <div id="modal-cash-fields" class="grid grid-cols-1 gap-2 ${bill.payment_method === 'Online' ? 'hidden' : ''}">
+                        <input type="text" id="modal-cash-receiver" class="input-field h-9 text-sm" placeholder="Received By (Name)" value="${bill.cash_receiver || ''}">
+                    </div>
+                    <!-- Online Fields -->
+                    <div id="modal-online-fields" class="${bill.payment_method !== 'Online' ? 'hidden' : ''}">
+                        <div class="grid grid-cols-[140px_1fr] gap-2">
+                            <select id="modal-online-platform" class="input-field h-9 text-sm">
+                                <option value="">Select Platform</option>
+                                <option value="GPay" ${bill.online_platform === 'GPay' ? 'selected' : ''}>GPay</option>
+                                <option value="PhonePe" ${bill.online_platform === 'PhonePe' ? 'selected' : ''}>PhonePe</option>
+                                <option value="Paytm" ${bill.online_platform === 'Paytm' ? 'selected' : ''}>Paytm</option>
+                                <option value="Bank Transfer" ${bill.online_platform === 'Bank Transfer' ? 'selected' : ''}>Bank Transfer</option>
+                                <option value="Other" ${bill.online_platform === 'Other' ? 'selected' : ''}>Other</option>
+                            </select>
+                            <input type="text" id="modal-transaction-id" class="input-field h-9 text-sm" placeholder="UPI ID / Txn Ref" value="${bill.transaction_id || ''}">
+                        </div>
+                    </div>
+                    <button id="update-payment-btn" class="mt-3 btn-primary text-sm py-2 px-4 flex items-center gap-2">
+                        <i data-lucide="save" class="w-4 h-4"></i> Save Payment Details
+                    </button>
                 </div>
             </div>
 
@@ -188,30 +239,87 @@ export async function initInvoiceHistory(container) {
             }
         };
 
-        // Status Update Handler (Inside Modal Scope)
-        const updateStatusBtn = container.querySelector('#update-status-btn');
-        if (updateStatusBtn) {
-            updateStatusBtn.onclick = async () => {
-                const newStatus = container.querySelector('#modal-status-select').value;
-                const { error } = await supabase.from('bills').update({ payment_status: newStatus }).eq('id', bill.id);
+        // Payment Section Elements (Inside Modal Scope)
+        const modalPaymentSection = container.querySelector('#modal-payment-section');
+        const modalStatusSelect = container.querySelector('#modal-status-select');
+        const modalPaymentRadios = container.querySelectorAll('input[name="modal-payment-method"]');
+        const modalCashFields = container.querySelector('#modal-cash-fields');
+        const modalOnlineFields = container.querySelector('#modal-online-fields');
+        const updatePaymentBtn = container.querySelector('#update-payment-btn');
+
+        // Toggle payment section visibility based on status
+        modalStatusSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'Paid') {
+                modalPaymentSection.classList.remove('hidden');
+            } else {
+                modalPaymentSection.classList.add('hidden');
+            }
+        });
+
+        // Toggle Cash/Online fields based on payment method selection
+        modalPaymentRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'Cash') {
+                    modalCashFields.classList.remove('hidden');
+                    modalOnlineFields.classList.add('hidden');
+                } else {
+                    modalCashFields.classList.add('hidden');
+                    modalOnlineFields.classList.remove('hidden');
+                }
+            });
+        });
+
+        // Save Payment Details Handler
+        if (updatePaymentBtn) {
+            updatePaymentBtn.onclick = async () => {
+                const newStatus = modalStatusSelect.value;
+                const paymentMethod = container.querySelector('input[name="modal-payment-method"]:checked')?.value || 'Cash';
+
+                let updateData = {
+                    payment_status: newStatus
+                };
+
+                if (newStatus === 'Paid') {
+                    updateData.payment_method = paymentMethod;
+                    if (paymentMethod === 'Cash') {
+                        updateData.cash_receiver = container.querySelector('#modal-cash-receiver').value || null;
+                        updateData.online_platform = null;
+                        updateData.transaction_id = null;
+                    } else {
+                        updateData.online_platform = container.querySelector('#modal-online-platform').value || null;
+                        updateData.transaction_id = container.querySelector('#modal-transaction-id').value || null;
+                        updateData.cash_receiver = null;
+                    }
+                } else {
+                    // If pending, clear payment details
+                    updateData.payment_method = null;
+                    updateData.cash_receiver = null;
+                    updateData.online_platform = null;
+                    updateData.transaction_id = null;
+                }
+
+                const { error } = await supabase.from('bills').update(updateData).eq('id', bill.id);
 
                 if (error) {
-                    alert('Error updating status: ' + error.message);
+                    alert('Error updating payment details: ' + error.message);
                 } else {
-                    bill.payment_status = newStatus; // Update local object
+                    // Update local object
+                    Object.assign(bill, updateData);
 
                     // Feedback
-                    const icon = updateStatusBtn.querySelector('i');
-                    if (icon) icon.setAttribute('data-lucide', 'check');
-                    updateStatusBtn.classList.add('text-green-600');
+                    const btnText = updatePaymentBtn.innerHTML;
+                    updatePaymentBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Saved!';
+                    updatePaymentBtn.classList.remove('btn-primary');
+                    updatePaymentBtn.classList.add('bg-green-600', 'text-white');
                     if (window.lucide) window.lucide.createIcons();
 
                     setTimeout(() => {
-                        if (icon) icon.setAttribute('data-lucide', 'save');
-                        updateStatusBtn.classList.remove('text-green-600');
+                        updatePaymentBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Save Payment Details';
+                        updatePaymentBtn.classList.add('btn-primary');
+                        updatePaymentBtn.classList.remove('bg-green-600', 'text-white');
                         if (window.lucide) window.lucide.createIcons();
                         fetchBills(); // Refresh main list
-                    }, 1000);
+                    }, 1500);
                 }
             };
         }
@@ -227,18 +335,6 @@ export async function initInvoiceHistory(container) {
         if (e.target === modal) modal.classList.add('hidden');
     });
 
-    // Delegated listener for dynamically created Update Status button
-    modalContent.addEventListener('click', async (e) => {
-        const btn = e.target.closest('#update-status-btn');
-        if (btn) {
-            const select = container.querySelector('#modal-status-select');
-            const newStatus = select.value;
-            const billId = currentActiveBill ? currentActiveBill.id : (bills.find(b => b.invoice_number === container.querySelector('.font-mono').innerText) || {}).id; // Fallback or use closure if reliable
-
-            // Actually, openInvoiceModal has closure over 'bill'. We need to attach listener inside openInvoiceModal OR use delegation if we accept re-attaching.
-            // Best: Attach inside openInvoiceModal.
-        }
-    });
 
 
     // --- Fetch ---
@@ -260,11 +356,28 @@ export async function initInvoiceHistory(container) {
     // --- Render Table ---
     function renderTable() {
         if (bills.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">No invoices found</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No invoices found</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = bills.map(b => `
+        tbody.innerHTML = bills.map(b => {
+            // Build payment details display
+            let paymentDetails = '-';
+            if (b.payment_status === 'Paid' && b.payment_method) {
+                if (b.payment_method === 'Cash') {
+                    paymentDetails = `<span class="text-emerald-600 font-medium">Cash</span>`;
+                    if (b.cash_receiver) {
+                        paymentDetails += `<div class="text-xs text-slate-400">By: ${b.cash_receiver}</div>`;
+                    }
+                } else if (b.payment_method === 'Online') {
+                    paymentDetails = `<span class="text-blue-600 font-medium">${b.online_platform || 'Online'}</span>`;
+                    if (b.transaction_id) {
+                        paymentDetails += `<div class="text-xs text-slate-400">${b.transaction_id}</div>`;
+                    }
+                }
+            }
+
+            return `
             <tr class="hover:bg-slate-50 transition-colors">
                 <td class="p-4 font-mono text-xs text-slate-500 font-bold">${b.invoice_number || '#' + b.id.slice(0, 8).toUpperCase()}</td>
                 <td class="p-4">${new Date(b.created_at).toLocaleDateString()}</td>
@@ -278,6 +391,9 @@ export async function initInvoiceHistory(container) {
                         ${b.payment_status || 'Paid'}
                     </span>
                 </td>
+                <td class="p-4 text-center">
+                    ${paymentDetails}
+                </td>
                 <td class="p-4 text-right font-bold text-slate-800">₹${b.total_amount.toFixed(2)}</td>
                 <td class="p-4 text-right">
                     <button class="menu-trigger p-2 rounded-full hover:bg-slate-200 text-slate-400 transition-colors" data-id="${b.id}">
@@ -285,7 +401,7 @@ export async function initInvoiceHistory(container) {
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
 
         if (window.lucide) window.lucide.createIcons();
         attachRowListeners();
@@ -310,13 +426,8 @@ export async function initInvoiceHistory(container) {
     // FIX: Popup Download Handler
     popupDownloadBtn.addEventListener('click', async () => {
         if (currentActiveBill) {
-            // 1. Save bill to local variable to prevent it from being null after hiding popup
             const billToDownload = currentActiveBill;
-
-            // 2. Hide Popup
             hidePopup();
-
-            // 3. Generate PDF with error handling
             try {
                 await generateAndDownloadPDF(billToDownload);
             } catch (error) {
@@ -367,7 +478,7 @@ export async function initInvoiceHistory(container) {
 }
 
 /* ==============================================================================
-   UPDATED PDF GENERATION (JRPL DESIGN)
+   UPDATED PDF GENERATION (JRPL DESIGN) - Payment Method Section Removed
    ============================================================================== */
 async function generateAndDownloadPDF(billData) {
     if (!billData) throw new Error("Bill data missing");
@@ -564,6 +675,12 @@ async function generateAndDownloadPDF(billData) {
     doc.setFont(undefined, 'bold');
     doc.text("Total", xLabel, finY + 16);
     doc.text(`INR ${total.toFixed(2)}`, xRight, finY + 16, { align: 'right' });
+
+    /* =========================
+       PAYMENT METHOD (REMOVED)
+       ========================== */
+    // Payment method section removed as requested. 
+    // The PDF now ends with the totals, leaving space before the footer.
 
     /* =========================
        FOOTER
