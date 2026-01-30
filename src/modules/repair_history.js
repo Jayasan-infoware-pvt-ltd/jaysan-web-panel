@@ -83,17 +83,49 @@ export async function initRepairHistory(container) {
 
     let repairs = [];
 
-    // --- Popup Logic ---
+    // --- FIXED Popup Logic ---
     function showPopup(btn, id) {
         const rect = btn.getBoundingClientRect();
         currentActiveId = id;
-        popupMenu.style.top = `${rect.bottom + 5}px`;
-        popupMenu.style.left = `${rect.right - 150}px`;
+
+        // 1. Make the menu visible to the DOM so we can measure its size, but hidden to the eye
         popupMenu.classList.remove('hidden');
+        popupMenu.style.visibility = 'hidden';
+
+        const menuHeight = popupMenu.offsetHeight;
+        const menuWidth = popupMenu.offsetWidth;
+
+        // 2. Calculate Vertical Position (Top)
+        // Default: Open below the button (rect.bottom + 5px gap)
+        let top = rect.bottom + 5;
+
+        // Check if opening below goes off the screen bottom
+        if (top + menuHeight > window.innerHeight) {
+            // Flip it to open ABOVE the button instead
+            top = rect.top - menuHeight - 5;
+        }
+
+        // 3. Calculate Horizontal Position (Left)
+        // Default: Align right edge of menu with right edge of button
+        let left = rect.right - menuWidth;
+
+        // Fallback: Ensure it doesn't go off the left edge of the screen
+        if (left < 10) {
+            left = 10; // Add some padding from the left
+        }
+
+        // 4. Apply the calculated positions
+        popupMenu.style.top = `${top}px`;
+        popupMenu.style.left = `${left}px`;
+
+        // 5. Finally, make it visible
+        popupMenu.style.visibility = 'visible';
     }
 
     function hidePopup() {
         popupMenu.classList.add('hidden');
+        // Reset visibility style so it doesn't interfere later
+        popupMenu.style.visibility = '';
         currentActiveId = null;
     }
 
@@ -107,92 +139,6 @@ export async function initRepairHistory(container) {
     const modal = container.querySelector('#detail-modal');
     const modalContent = container.querySelector('#modal-content');
     const closeModalBtns = [container.querySelector('#close-modal-btn'), container.querySelector('#close-modal-action')];
-
-    function openModal(repair) {
-        hidePopup();
-        modalContent.innerHTML = `
-            <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Customer Info</label>
-                    <div class="text-slate-800 font-medium">${repair.customer_name}</div>
-                    <div class="text-slate-500 text-sm">${repair.contact_number || 'No contact'}</div>
-                </div>
-                
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Device</label>
-                    <div class="text-slate-800 font-medium">${repair.device_details}</div>
-                    <div class="text-xs text-slate-500">Model: ${repair.model_number || '-'}</div>
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Serial No.</label>
-                    <div class="text-slate-800 font-mono">${repair.serial_number || '-'}</div>
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Technician</label>
-                    <div class="text-slate-800">${repair.technician_name || '-'}</div>
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Status</label>
-                    <div class="mt-1 inline-block">
-                        <span class="px-2 py-1 rounded-full text-xs font-bold 
-                            ${repair.status === 'Delivered' ? 'bg-green-100 text-green-700' :
-                repair.status === 'Repaired' ? 'bg-blue-100 text-blue-700' :
-                    repair.status === 'Part Not Available' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">
-                            ${repair.status}
-                        </span>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Estimated Cost</label>
-                    <div class="text-slate-800 font-bold">₹${repair.estimated_cost || 0}</div>
-                </div>
-                
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase">Part Replaced</label>
-                    <div class="text-slate-800">${repair.part_replaced_name || 'None'}</div>
-                </div>
-
-                <div class="col-span-2">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Issue Description</label>
-                    <div class="p-3 bg-slate-50 rounded border border-slate-100 text-sm text-slate-700 mt-1">
-                        ${repair.issue_description || 'No description provided.'}
-                    </div>
-                </div>
-
-                ${repair.status === 'Delivered' && repair.delivered_at ? `
-                <div class="col-span-2 bg-green-50 p-3 rounded border border-green-100 mt-2">
-                    <div class="flex items-center gap-2 text-green-700 font-bold text-xs uppercase">
-                        <i data-lucide="check-circle" class="w-4 h-4"></i> Delivered
-                    </div>
-                    <div class="text-green-800 text-sm mt-1">
-                        ${new Date(repair.delivered_at).toLocaleString()}
-                    </div>
-                </div>
-                ` : ''}
-
-                <div class="col-span-2 text-xs text-slate-400 border-t pt-2 mt-2">
-                    Created on: ${new Date(repair.created_at).toLocaleString()} <br>
-                    ID: ${repair.id}
-                </div>
-            </div>
-        `;
-        modal.classList.remove('hidden');
-        if (window.lucide) window.lucide.createIcons();
-    }
-
-    closeModalBtns.forEach(btn => {
-        btn?.addEventListener('click', () => modal.classList.add('hidden'));
-    });
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
-    });
-
-    // --- Data Fetching ---
 
     function openModal(repair) {
         hidePopup();
@@ -351,7 +297,6 @@ export async function initRepairHistory(container) {
         });
 
         // Re-attach listeners for popup buttons to avoid duplicates if renderTable is called multiple times
-        // Clone and replace to clear old listeners
         const oldPopupViewBtn = container.querySelector('#popup-view');
         const newPopupViewBtn = oldPopupViewBtn.cloneNode(true);
         oldPopupViewBtn.replaceWith(newPopupViewBtn);
