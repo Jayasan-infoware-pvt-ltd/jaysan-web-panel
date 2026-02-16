@@ -14,12 +14,12 @@ export async function initAnalytics(container, navigateFn) {
                 </div>
                
                 <div class="flex items-center gap-3 bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm">
-                    <div class="flex items-center gap-2 px-2" id="month-picker-container">
+                    <div class="flex items-center gap-2 px-2 opacity-50" id="month-picker-container">
                         <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Period</span>
-                        <input type="month" id="dashboard-month-picker" class="bg-slate-50 border-none text-sm font-medium text-slate-700 focus:ring-0 cursor-pointer rounded px-2 py-1" value="${new Date().toISOString().slice(0, 7)}">
+                        <input type="month" id="dashboard-month-picker" class="bg-slate-50 border-none text-sm font-medium text-slate-700 focus:ring-0 cursor-pointer rounded px-2 py-1" value="${new Date().toISOString().slice(0, 7)}" disabled>
                     </div>
                     <div class="w-px h-6 bg-slate-200"></div>
-                    <button id="all-time-btn" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-100 transition-colors border border-transparent">
+                    <button id="all-time-btn" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-800 text-white transition-colors border border-transparent">
                         All Time
                     </button>
                 </div>
@@ -44,7 +44,7 @@ export async function initAnalytics(container, navigateFn) {
                     <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                          <i data-lucide="trending-up" class="w-10 h-10 text-blue-600"></i>
                     </div>
-                    <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2" id="label-sales">Total Revenue</h3>
+                    <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2" id="label-sales">Sales (All Time)</h3>
                     <p class="text-3xl font-bold text-slate-800" id="month-sales-card">₹0</p>
                     <div class="mt-4 flex items-center text-xs text-blue-600 font-medium">
                         <span class="bg-blue-50 px-2 py-1 rounded-full">Revenue</span>
@@ -56,7 +56,7 @@ export async function initAnalytics(container, navigateFn) {
                      <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                          <i data-lucide="wallet" class="w-10 h-10 text-rose-600"></i>
                     </div>
-                     <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2" id="label-exp">Total Expenditure</h3>
+                     <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2" id="label-exp">Expenditure (All Time)</h3>
                      <p class="text-3xl font-bold text-slate-800" id="month-expenditure-card">₹0</p>
                      <div class="mt-4 flex items-center text-xs text-rose-600 font-medium">
                         <span class="bg-rose-50 px-2 py-1 rounded-full">Expenses</span>
@@ -68,7 +68,7 @@ export async function initAnalytics(container, navigateFn) {
                      <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                          <i data-lucide="piggy-bank" class="w-10 h-10 text-emerald-600"></i>
                     </div>
-                     <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2" id="label-profit">Net Profit</h3>
+                     <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2" id="label-profit">Net Profit (All Time)</h3>
                      <p class="text-3xl font-bold text-slate-800" id="net-profit-card">₹0</p>
                      
                      <div class="mt-4 flex justify-between items-center">
@@ -204,7 +204,7 @@ export async function initAnalytics(container, navigateFn) {
 
     let salesChartInstance = null;
     let repairChartInstance = null;
-    let isAllTime = false;
+    let isAllTime = true; // Default changed to true
 
     // --- Main Fetch Logic ---
     async function loadDashboardData() {
@@ -220,7 +220,6 @@ export async function initAnalytics(container, navigateFn) {
         const productMap = new Map((products || []).map(p => [p.id, Number(p.cost_price) || 0]));
 
         if (isAllTime) {
-            // ... existing logic ...
             // Update UI State for All Time
             allTimeBtn.classList.add('bg-slate-800', 'text-white');
             allTimeBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
@@ -231,7 +230,6 @@ export async function initAnalytics(container, navigateFn) {
             lblExp.textContent = 'Expenditure (All Time)';
             lblProfit.textContent = 'Net Profit (All Time)';
         } else {
-            // ... existing logic ...
             // Update UI State for Monthly
             allTimeBtn.classList.remove('bg-slate-800', 'text-white');
             allTimeBtn.classList.add('text-slate-600', 'hover:bg-slate-100');
